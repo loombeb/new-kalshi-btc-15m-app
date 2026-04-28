@@ -251,7 +251,7 @@ main{max-width:1100px;margin:0 auto;padding:16px 20px 70px;display:flex;flex-dir
 </div>
 
 <header>
-  <div class="logo"><em>◈</em> KALSHI BTC 15M <small>v2.3</small></div>
+  <div class="logo"><em>◈</em> KALSHI BTC 15M <small>v2.4</small></div>
   <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px">
     <div id="hPrice">—</div><div id="hChange" class="neu">—</div>
     <span id="srcBadge" class="src-badge"></span>
@@ -453,7 +453,7 @@ main{max-width:1100px;margin:0 auto;padding:16px 20px 70px;display:flex;flex-dir
 // ══════════════════════════════════════════════════════
 // CONSTANTS
 // ══════════════════════════════════════════════════════
-const BUILD='2.3';
+const BUILD='2.4';
 const ITV=15*60*1000;
 const SNAP_MARKS=[3,6,10];
 const KALSHI_BASE='https://api.elections.kalshi.com/trade-api/v2';
@@ -576,7 +576,6 @@ const CF_WORKER_KEY='kalshi_cf_worker';
 function getCfWorker(){return localStorage.getItem(CF_WORKER_KEY)||'';}
 
 async function kalshiDirectFetch(url){
-  // If user has a Cloudflare Worker configured, use it first — most reliable
   const cfWorker=getCfWorker();
   if(cfWorker){
     try{
@@ -585,14 +584,18 @@ async function kalshiDirectFetch(url){
       });
       if(r.ok){
         const text=await r.text();
-        if(text&&!text.startsWith('<'))return JSON.parse(text);
+        if(text&&!text.startsWith('<')){
+          const data=JSON.parse(text);
+          console.log('Worker OK for',url.slice(-30),JSON.stringify(data).slice(0,200));
+          return data;
+        }
       }
-    }catch{}
+    }catch(e){console.warn('Worker error:',e.message);}
   }
 
   // Public CORS proxies — tried in sequence
   const proxies=[
-    url=>url,  // direct (works if Kalshi ever adds CORS headers)
+    url=>url,
     url=>`https://corsproxy.io/?url=${encodeURIComponent(url)}`,
     url=>`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     url=>`https://thingproxy.freeboard.io/fetch/${url}`,
@@ -610,7 +613,7 @@ async function kalshiDirectFetch(url){
       const text=await r.text();
       if(!text||text.startsWith('<')||text.startsWith('<!'))continue;
       const data=JSON.parse(text);
-      if(data.contents)return JSON.parse(data.contents); // allorigins wrapper
+      if(data.contents)return JSON.parse(data.contents);
       return data;
     }catch{continue;}
   }
@@ -634,13 +637,13 @@ async function getCurrentKalshiMarket(){
   }
 
   // New interval or cache busted — try constructed tickers
-  // Kalshi names markets by close time; returns array of variants to try
   const closeTs=itvStart+ITV;
   const openTs=itvStart;
   for(const ts of [closeTs, openTs]){
     for(const ticker of buildKalshiTicker(ts)){
       const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${ticker}`);
-      if(d?.market&&(d.market.status==='open'||d.market.status==='active')){
+      console.log('Ticker try:',ticker,'result:',d?.market?.status||'null');
+      if(d?.market&&d.market.status!=='settled'){
         _previousKalshiTicker=_currentKalshiTicker;
         _currentKalshiTicker=d.market.ticker||ticker;
         _currentKalshiIid=iid;
@@ -1098,11 +1101,6 @@ function extractStrike(mkt){
   // any large standalone number >10000
   const nums=combined.match(/\b(\d{5,}(?:\.\d+)?)\b/g);
   if(nums){for(const s of nums){const n=parseFloat(s);if(n>10000&&n<1000000)return n;}}
-  console.log('extractStrike MISS',JSON.stringify({
-    custom_strike:mkt.custom_strike,fs:mkt.functional_strike,
-    floor:mkt.floor_strike,sub:mkt.yes_sub_title,title:mkt.title,
-    rules:(mkt.rules_primary||'').slice(0,100)
-  }));
   return null;
 }
 
@@ -1135,7 +1133,6 @@ async function refreshKalshiBar(a){
     document.getElementById('kTicker').textContent=attemptedTicker+' (all proxies failed)';
     return;
   }
-  window._lastKalshiMkt=mkt; // debug: window._lastKalshiMkt in console
   document.getElementById('kTicker').textContent=mkt.ticker||'';
 
   // Status
