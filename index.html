@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalshi BTC 15m Advisor — Build 3.5</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+/* ── Tokens ───────────────────────────────────────────────────── */
+:root{
+  /* 4-tier signal colors */
+  --green-strong:#0FA868;   --green-strong-bg:rgba(15,168,104,0.15);  --green-strong-b:rgba(15,168,104,0.45);
+  --green-light:#5DD4A0;    --green-light-bg:rgba(93,212,160,0.1);    --green-light-b:rgba(93,212,160,0.3);
+  --red-strong:#D03030;     --red-strong-bg:rgba(208,48,48,0.15);     --red-strong-b:rgba(208,48,48,0.45);
+  --red-light:#F07878;      --red-light-bg:rgba(240,120,120,0.1);     --red-light-b:rgba(240,120,120,0.3);
+  /* legacy aliases so old code still works */
+  --green:#0FA868;  --green-bg:rgba(15,168,104,0.12);  --green-b:rgba(15,168,104,0.4);
+  --red:#D03030;    --red-bg:rgba(208,48,48,0.12);     --red-b:rgba(208,48,48,0.4);
+  --blue:#4A8EF0;--amber:#E8A030;--purple:#9B6EF0;
+}
+[data-theme="dark"]{
+  --bg:#0a0a0f;--bg2:#111118;--bg3:#1c1c28;
+  --border:rgba(255,255,255,0.09);--border2:rgba(255,255,255,0.18);
+  --text:#f0f0f8;--text2:#a0a0bc;--text3:#6a6a88;--shadow:rgba(0,0,0,0.5);
+}
+[data-theme="light"]{
+  --bg:#ededf2;--bg2:#ffffff;--bg3:#e0e0ea;
+  --border:rgba(0,0,0,0.10);--border2:rgba(0,0,0,0.20);
+  --text:#080814;--text2:#38384e;--text3:#7070a0;--shadow:rgba(0,0,0,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'SF Mono','Fira Code',monospace;font-size:15px;min-height:100vh;transition:background .2s,color .2s}
+
+/* ── Layout ───────────────────────────────────────────────────── */
+header{border-bottom:1px solid var(--border);padding:12px 22px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:var(--bg);z-index:10;gap:8px}
+.logo{font-size:12px;font-weight:700;letter-spacing:.15em;color:var(--text2);white-space:nowrap}
+.logo em{color:var(--green-strong);font-style:normal}
+.logo small{color:var(--text3);font-weight:400}
+#hPrice{font-size:24px;font-weight:700;letter-spacing:-.02em}
+#hChange{font-size:14px;margin-left:7px}
+.up{color:var(--green-strong)}.dn{color:var(--red-strong)}.neu{color:var(--text2)}
+.up-light{color:var(--green-light)}.dn-light{color:var(--red-light)}
+main{max-width:1100px;margin:0 auto;padding:16px 20px 70px;display:flex;flex-direction:column;gap:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:720px){.g2,.g4{grid-template-columns:1fr}.g3{grid-template-columns:1fr 1fr}}
+
+/* ── Cards ────────────────────────────────────────────────────── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 18px}
+.csm{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px}
+.sec{font-size:11px;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:6px}
+.lbl{font-size:12px;color:var(--text2);margin-bottom:3px}
+.val{font-size:19px;font-weight:700}
+
+/* ── Kalshi market bar ────────────────────────────────────────── */
+#kalshiBar{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 18px;display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.kpill{display:flex;flex-direction:column;gap:2px;min-width:80px}
+.kpill .klbl{font-size:10px;letter-spacing:.1em;color:var(--text3);text-transform:uppercase}
+.kpill .kval{font-size:16px;font-weight:700;color:var(--text)}
+.kpill .kval.strike{color:var(--amber)}
+.kdiv{width:1px;height:32px;background:var(--border);flex-shrink:0}
+.kticker{font-size:11px;color:var(--text3);margin-left:auto;font-style:italic}
+.kstatus{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:700;letter-spacing:.05em}
+.kstatus-open{background:var(--green-strong-bg);color:var(--green-strong);border:1px solid var(--green-strong-b)}
+.kstatus-closed{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+.kstatus-settled{background:rgba(232,160,48,0.12);color:var(--amber);border:1px solid rgba(232,160,48,0.3)}
+
+/* ── Verdict ──────────────────────────────────────────────────── */
+.vcard{border-radius:10px;padding:18px 20px;border:1px solid var(--border);display:flex;flex-direction:column;gap:8px;transition:background .25s,border-color .25s}
+.vy{background:var(--green-strong-bg);border-color:var(--green-strong-b)}
+.vn{background:var(--red-strong-bg);border-color:var(--red-strong-b)}
+.vw{background:var(--bg2)}
+.vtitle{font-size:30px;font-weight:800;letter-spacing:-.03em}
+.vy .vtitle{color:var(--green-strong)}.vn .vtitle{color:var(--red-strong)}.vw .vtitle{color:var(--text2)}
+.vsub{font-size:14px;opacity:.8}
+
+/* ── Bars ─────────────────────────────────────────────────────── */
+.tbar{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;margin:6px 0 3px}
+.tfill{height:100%;background:var(--blue);border-radius:2px;transition:width 1s linear}
+.btrack{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:4px}
+.bfill{height:100%;border-radius:3px;transition:width .4s}
+
+/* ── Signals ──────────────────────────────────────────────────── */
+.sig-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)}
+.sig-row:last-child{border-bottom:none}
+.sn{font-size:13px;color:var(--text2)}.sd{font-size:11px;color:var(--text3);margin-top:1px}
+/* 4-tier badges: strong/light × green/red */
+.badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px}
+.bu-s{background:var(--green-strong-bg);color:var(--green-strong);border:1px solid var(--green-strong-b)}  /* bull strong */
+.bu-l{background:var(--green-light-bg);color:var(--green-light);border:1px solid var(--green-light-b)}    /* bull light */
+.bd-s{background:var(--red-strong-bg);color:var(--red-strong);border:1px solid var(--red-strong-b)}       /* bear strong */
+.bd-l{background:var(--red-light-bg);color:var(--red-light);border:1px solid var(--red-light-b)}          /* bear light */
+.bn{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}                               /* neutral */
+
+/* ── AI ───────────────────────────────────────────────────────── */
+.ai-box{font-size:14px;color:var(--text2);line-height:1.7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.ai-box strong{color:var(--text);font-weight:600}
+.streaming::after{content:'▋';animation:blink 1s step-end infinite;color:var(--green-strong)}
+@keyframes blink{50%{opacity:0}}
+.trow{display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;color:var(--text2)}
+.tdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+
+/* ── Prediction History ───────────────────────────────────────── */
+.hist-outer{overflow-x:auto}
+.hist-table{width:100%;border-collapse:collapse;font-size:12px;min-width:640px}
+.hist-table th{font-size:10px;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;padding:0 8px 8px;text-align:left;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap}
+.hist-table td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text2)}
+.hist-table tr:last-child td{border-bottom:none}
+.hist-table tbody tr:hover td{background:var(--bg3)}
+
+/* ── Snapshot dots — checkmark/x system ──────────────────────── */
+.sdot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;font-size:13px;font-weight:800;flex-shrink:0;cursor:default;letter-spacing:0}
+.sd-yc{background:var(--green-strong-bg);color:var(--green-strong);border:1px solid var(--green-strong-b)}  /* YES correct ✓ */
+.sd-yw{background:var(--red-strong-bg);color:var(--red-strong);border:1px solid var(--red-strong-b)}        /* YES wrong ✗ */
+.sd-nc{background:var(--green-strong-bg);color:var(--green-strong);border:1px solid var(--green-strong-b)}  /* NO correct ✓ */
+.sd-nw{background:var(--red-strong-bg);color:var(--red-strong);border:1px solid var(--red-strong-b)}        /* NO wrong ✗ */
+.sd-sk{background:var(--bg3);color:var(--text3);border:1px solid var(--border);font-size:11px}               /* skip */
+.sd-pn{background:var(--bg3);color:var(--text3);border:1px solid var(--border);opacity:.6;font-size:10px}   /* pending */
+
+/* Accuracy pills */
+.acc-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.acc-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px}
+.ap-3{background:rgba(232,160,48,.12);color:var(--amber);border:1px solid rgba(232,160,48,.3)}
+.ap-6{background:rgba(155,110,240,.12);color:var(--purple);border:1px solid rgba(155,110,240,.3)}
+.ap-10{background:rgba(74,142,240,.12);color:var(--blue);border:1px solid rgba(74,142,240,.3)}
+.ap-all{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+
+/* Expand */
+.hist-collapsed .hist-extra{display:none}
+.xbtn{font-size:11px;background:none;border:1px solid var(--border);color:var(--text3);border-radius:5px;padding:4px 11px;cursor:pointer;font-family:inherit;letter-spacing:.05em;transition:all .15s}
+.xbtn:hover{border-color:var(--blue);color:var(--blue)}
+
+/* Mini spark in table */
+.tspk{display:inline-block;width:48px;height:18px;vertical-align:middle}
+
+/* ── Status / loading / error ─────────────────────────────────── */
+.statusbar{display:flex;justify-content:space-between;align-items:center;padding:8px 22px;border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;background:var(--bg);font-size:11px;color:var(--text3);letter-spacing:.05em;z-index:9}
+.sdot-live{width:7px;height:7px;border-radius:50%;background:var(--green-strong);display:inline-block;margin-right:5px;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#ls{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:50}
+.spin{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--green-strong);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#lmsg{font-size:12px;color:var(--text2);letter-spacing:.1em}
+#lsrc{font-size:11px;color:var(--text3);margin-top:2px}
+#errbox{display:none;background:var(--red-strong-bg);border:1px solid var(--red-strong-b);border-radius:10px;padding:20px;text-align:center}
+#errbox h3{color:var(--red-strong);margin-bottom:8px;font-size:16px}
+#errmsg{font-size:13px;color:var(--text2);margin-bottom:4px;line-height:1.6}
+#errsrc{font-size:12px;color:var(--text3);margin-bottom:14px}
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.rbtn{background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:6px 13px;font-size:12px;font-family:inherit;cursor:pointer;letter-spacing:.05em;transition:all .15s}
+.rbtn:hover{border-color:var(--green-strong);color:var(--green-strong)}
+.hbtn{font-size:11px;background:none;border:1px solid var(--border);color:var(--text3);border-radius:5px;padding:4px 10px;cursor:pointer;font-family:inherit;letter-spacing:.05em;transition:all .15s}
+.hbtn:hover{border-color:var(--blue);color:var(--blue)}
+#themeBtn{font-size:15px;background:none;border:1px solid var(--border);color:var(--text2);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;line-height:1.4}
+#themeBtn:hover{border-color:var(--amber)}
+
+/* ── Sidebar layout ───────────────────────────────────────────── */
+.main-with-sidebar{display:grid;grid-template-columns:1fr 320px;gap:14px;align-items:start}
+.main-col{display:flex;flex-direction:column;gap:14px}
+.sidebar{display:flex;flex-direction:column;gap:14px}
+@media(max-width:900px){.main-with-sidebar{grid-template-columns:1fr}}
+
+/* ── Circular countdown ───────────────────────────────────────── */
+.circ-wrap{position:relative;width:52px;height:52px;flex-shrink:0}
+.circ-wrap svg{position:absolute;top:0;left:0;transform:rotate(-90deg)}
+.circ-bg{fill:none;stroke:var(--border2);stroke-width:3}
+.circ-fg{fill:none;stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset 1s linear,stroke .3s}
+.circ-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text);line-height:1.1}
+.circ-label span{font-size:8px;color:var(--text3);letter-spacing:.05em;font-weight:400}
+
+/* ── History sidebar card ─────────────────────────────────────── */
+.hist-sidebar{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.hist-sidebar .hist-table{min-width:0;font-size:12px;table-layout:fixed;width:100%}
+.hist-sidebar .hist-table th{font-size:10px;padding:0 4px 7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist-sidebar .hist-table td{padding:6px 4px;overflow:hidden}
+.hist-sidebar .hist-table .col-time{width:72px}
+.hist-sidebar .hist-table .col-strike{width:76px}
+.hist-sidebar .hist-table .col-result{width:52px}
+.hist-sidebar .hist-table .col-snap{width:28px;text-align:center}
+.hist-sidebar .sdot{width:22px;height:22px;font-size:12px}
+.hist-sidebar .acc-pill{font-size:13px;padding:4px 12px}
+.hist-sidebar .sec{font-size:12px;letter-spacing:.1em}
+
+/* ── History clear button ─────────────────────────────────────── */
+.danger-btn{font-size:10px;background:none;border:1px solid var(--red-strong-b);color:var(--red-strong);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;letter-spacing:.05em;transition:all .15s}
+.danger-btn:hover{background:var(--red-strong-bg)}
+.mpill{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 12px}
+.macro-grid{display:flex;flex-wrap:wrap;gap:8px}
+.macro-grid .mpill{flex:1;min-width:95px}
+.chart-wrap{position:relative;height:75px}
+.mstats{display:flex;gap:14px;margin-bottom:5px}
+.mstat{font-size:10px;color:var(--text3)}.mstat span{color:var(--text2);font-weight:700}
+.src-badge{font-size:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);padding:2px 8px;border-radius:4px;margin-left:8px;letter-spacing:.05em}
+.db-badge{font-size:10px;padding:2px 8px;border-radius:4px;letter-spacing:.04em}
+.db-on{background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)}
+.db-off{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+
+/* ── Settings modal ───────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
+.modal-overlay.hidden{display:none}
+.modal-box{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:26px 30px;width:480px;max-width:93vw;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow-y:auto}
+.modal-box h2{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--text)}
+.modal-box p,.modal-box .mnote{font-size:12px;color:var(--text2);line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.modal-box a{color:var(--blue);text-decoration:none}.modal-box a:hover{text-decoration:underline}
+.modal-box label{font-size:10px;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;display:block}
+.minput{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:9px 13px;font-size:12px;font-family:'SF Mono','Fira Code',monospace;color:var(--text);width:100%;outline:none}
+.minput:focus{border-color:var(--green)}.minput::placeholder{color:var(--text3)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.kbtn{background:var(--green);color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:11px;font-family:inherit;font-weight:700;cursor:pointer}
+.kbtn:hover{opacity:.9}
+.kbtn-skip{background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:8px 14px;font-size:11px;font-family:inherit;cursor:pointer}
+.sql-box{background:var(--bg3);border-radius:6px;padding:9px 11px;font-family:'SF Mono','Fira Code',monospace;font-size:10px;line-height:1.8;color:var(--text3);margin-top:4px}
+
+/* ── GitHub instructions ──────────────────────────────────────── */
+#ghBox{display:none;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
+#ghBox h3{font-size:12px;font-weight:700;letter-spacing:.08em;margin-bottom:12px;color:var(--text)}
+.gh-step{display:flex;gap:10px;margin-bottom:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;color:var(--text2);line-height:1.5}
+.gh-num{width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px}
+.gh-step code{background:var(--bg3);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--amber)}
+.gh-note{font-size:11px;color:var(--text3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.6;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<div id="ls"><div class="spin"></div><div id="lmsg">INITIALIZING...</div><div id="lsrc"></div></div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h2>⚙ SETTINGS — Build 2.0</h2>
+
+    <div>
+      <label>Anthropic API Key</label>
+      <input class="minput" id="keyInput" type="password" placeholder="sk-ant-api03-..." autocomplete="off"/>
+      <div class="mnote" style="margin-top:5px">Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Stored locally, sent only to api.anthropic.com.</div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <label>Supabase Project URL <span style="color:var(--text3);font-size:9px;text-transform:none;letter-spacing:0">(optional — cross-device sync)</span></label>
+      <input class="minput" id="sbUrl" type="text" placeholder="https://xxxx.supabase.co" autocomplete="off"/>
+      <label style="margin-top:10px">Supabase Anon Key</label>
+      <input class="minput" id="sbKey" type="password" placeholder="eyJ..." autocomplete="off"/>
+      <div class="mnote" style="margin-top:6px">Free at <a href="https://supabase.com" target="_blank">supabase.com</a>. Create a project, run this SQL in the editor, then paste your URL + anon key:</div>
+      <div class="sql-box">
+        CREATE TABLE predictions (<br>
+        &nbsp;&nbsp;interval_id BIGINT PRIMARY KEY,<br>
+        &nbsp;&nbsp;data JSONB,<br>
+        &nbsp;&nbsp;updated_at TIMESTAMPTZ DEFAULT NOW()<br>
+        );<br>
+        ALTER TABLE predictions ENABLE ROW LEVEL SECURITY;<br>
+        CREATE POLICY "public rw" ON predictions FOR ALL USING (true);
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <label>Cloudflare Worker URL <span style="color:var(--green-strong);font-size:9px;text-transform:none;letter-spacing:0">★ RECOMMENDED — permanent CORS fix</span></label>
+      <input class="minput" id="cfWorkerInput" type="text" placeholder="https://your-worker.workers.dev" autocomplete="off"/>
+      <div class="mnote" style="margin-top:6px">Free at <a href="https://workers.cloudflare.com" target="_blank">workers.cloudflare.com</a>. Create a Worker, paste this code, deploy, then paste the URL here. Eliminates reliance on third-party proxies.</div>
+      <div class="sql-box" style="margin-top:6px">
+        export default {<br>
+        &nbsp;&nbsp;async fetch(request) {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;const url = new URL(request.url).searchParams.get('url');<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;if (!url) return new Response('Missing url', {status: 400});<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;const res = await fetch(url, {headers: {Accept: 'application/json'}});<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;const body = await res.text();<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;return new Response(body, {headers: {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Content-Type': 'application/json',<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Access-Control-Allow-Origin': '*'<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;}});<br>
+        &nbsp;&nbsp;}<br>
+        }
+      </div>
+    </div>
+      <button class="kbtn-skip" onclick="closeSettings()">CANCEL</button>
+      <button class="kbtn" onclick="saveSettings()">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo"><em>◈</em> KALSHI BTC 15M <small>v4.4</small></div>
+  <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px">
+    <div id="hPrice">—</div><div id="hChange" class="neu">—</div>
+    <span id="srcBadge" class="src-badge"></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px">
+    <span id="dbBadge" class="db-badge db-off">DB: OFF</span>
+    <button id="themeBtn" onclick="toggleTheme()">☀</button>
+    <button class="hbtn" id="aiToggleBtn" onclick="setAiEnabled(!getAiEnabled())">AI: ON</button>
+    <button class="hbtn" onclick="openSettings()">⚙ SETTINGS</button>
+    <button class="hbtn" onclick="toggleGH()">GITHUB ▲</button>
+    <button class="rbtn" onclick="boot()">↺ REFRESH</button>
+  </div>
+</header>
+
+<main>
+  <div id="errbox">
+    <h3>⚠ Could not load market data</h3>
+    <div id="errmsg"></div><div id="errsrc"></div>
+    <button class="rbtn" onclick="boot()">↺ RETRY</button>
+    <button class="rbtn" style="margin-left:8px" onclick="loadDemo()">▶ DEMO DATA</button>
+  </div>
+
+  <!-- GitHub Instructions (collapsible) -->
+  <div id="ghBox">
+    <h3>DEPLOYING TO GITHUB PAGES (cross-device + Supabase sync)</h3>
+    <div class="gh-step"><div class="gh-num">1</div><div>Go to <a href="https://github.com/new" target="_blank">github.com/new</a> and create a new repository — name it anything, e.g. <code>btc-advisor</code>. Keep it public.</div></div>
+    <div class="gh-step"><div class="gh-num">2</div><div>Download this HTML file. Rename it to <code>index.html</code>. In your new repo, click <strong>Add file → Upload files</strong> and upload <code>index.html</code>.</div></div>
+    <div class="gh-step"><div class="gh-num">3</div><div>Go to <strong>Settings → Pages</strong>. Under "Branch" select <code>main</code> and click Save. GitHub will give you a URL like <code>https://yourusername.github.io/btc-advisor</code>.</div></div>
+    <div class="gh-step"><div class="gh-num">4</div><div>Open that URL on any device — phone, tablet, computer. Market data loads automatically.</div></div>
+    <div class="gh-step"><div class="gh-num">5</div><div><strong>For cross-device prediction history:</strong> Set up Supabase (free at <a href="https://supabase.com" target="_blank">supabase.com</a>), run the SQL from Settings, then add your Supabase URL + anon key in <strong>⚙ Settings</strong> on each device. History syncs automatically.</div></div>
+    <div class="gh-step"><div class="gh-num">6</div><div>When you get a new build, just re-upload <code>index.html</code> to the same repo. GitHub Pages updates within ~60 seconds.</div></div>
+    <div class="gh-note">Note: Your Anthropic API key and Supabase credentials are stored in each browser's localStorage — you'll need to enter them once per device in Settings. They are never sent anywhere except directly to their respective APIs.</div>
+  </div>
+
+  <!-- Interval Timer -->
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="color:var(--text3);font-size:10px;letter-spacing:.1em">CURRENT 15M INTERVAL</span>
+      <span id="tlabel" style="font-size:12px;font-weight:700">—</span>
+    </div>
+    <div class="tbar"><div class="tfill" id="tfill" style="width:0%"></div></div>
+    <div style="display:flex;justify-content:space-between">
+      <span style="font-size:10px;color:var(--text3)">OPEN</span>
+      <span style="font-size:10px;color:var(--text3)">RESOLVE</span>
+    </div>
+  </div>
+
+  <!-- Kalshi Live Market Bar -->
+  <div id="kalshiBar">
+    <div class="kpill"><div class="klbl">Kalshi status</div><div class="kval"><span id="kStatus" class="kstatus kstatus-open">LOADING</span></div></div>
+    <div class="kdiv"></div>
+    <div class="kpill"><div class="klbl">Strike (target px)</div><div class="kval strike" id="kStrike">—</div></div>
+    <div class="kdiv"></div>
+    <div class="kpill"><div class="klbl">Yes bid / ask</div><div class="kval" id="kYesBid">—</div></div>
+    <div class="kdiv"></div>
+    <div class="kpill"><div class="klbl">Implied prob</div><div class="kval" id="kImplied">—</div></div>
+    <div class="kdiv"></div>
+    <div class="kpill"><div class="klbl">Settlement px</div><div class="kval" id="kSettle">—</div></div>
+    <div class="kdiv"></div>
+    <div class="kpill"><div class="klbl">Result</div><div class="kval" id="kResult">—</div></div>
+    <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
+      <div class="kticker" id="kTicker"></div>
+      <div id="kUpdated" style="font-size:9px;color:var(--text3)">—</div>
+    </div>
+  </div>
+
+  <!-- Verdict + Signal Balance -->
+  <div class="g2">
+    <div class="vcard vw" id="vcard">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:10px;opacity:.5;letter-spacing:.1em">MODEL RECOMMENDATION</div>
+        <!-- Circular signal countdown -->
+        <div class="circ-wrap" title="Time until next signal refresh">
+          <svg width="52" height="52" viewBox="0 0 52 52">
+            <circle class="circ-bg" cx="26" cy="26" r="22"/>
+            <circle class="circ-fg" id="circFg" cx="26" cy="26" r="22"
+              stroke-dasharray="138.2" stroke-dashoffset="0" stroke="var(--blue)"/>
+          </svg>
+          <div class="circ-label"><span id="circSec">—</span><span>sec</span></div>
+        </div>
+      </div>
+      <div class="vtitle" id="vtitle">—</div>
+      <div class="vsub" id="vsub">Loading...</div>
+      <div style="margin-top:4px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:3px">
+          <span>SIGNAL CONFIDENCE</span><span id="cpct">—</span>
+        </div>
+        <div class="btrack"><div class="bfill" id="cbar" style="width:0%;background:var(--text2)"></div></div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px" id="modelVsKalshi"></div>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <div class="sec">Signal balance</div>
+      <div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span style="color:var(--red)">BEAR <span id="bearP">—</span>%</span>
+          <span style="color:var(--green)">BULL <span id="bullP">—</span>%</span>
+        </div>
+        <div style="height:8px;display:flex;border-radius:4px;overflow:hidden" id="bbbar"></div>
+      </div>
+      <div class="g3">
+        <div class="csm"><div class="lbl">RSI</div><div class="val" id="rsiV">—</div></div>
+        <div class="csm"><div class="lbl">Vol ratio</div><div class="val" id="volV">—</div></div>
+        <div class="csm"><div class="lbl">4h Δ</div><div class="val" id="ch4V">—</div></div>
+      </div>
+      <div class="g3">
+        <div class="csm" style="border-color:rgba(232,160,48,0.3)"><div class="lbl" style="color:var(--amber)">⚡ Vel 3m</div><div class="val" id="velV">—</div></div>
+        <div class="csm" style="border-color:rgba(232,160,48,0.3)"><div class="lbl" style="color:var(--amber)">⚡ Itv Δ</div><div class="val" id="itvV">—</div></div>
+        <div class="csm" style="border-color:rgba(232,160,48,0.3)"><div class="lbl" style="color:var(--amber)">⚡ Accel</div><div class="val" id="accelV">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content + History sidebar -->
+  <div class="main-with-sidebar">
+    <div class="main-col">
+
+      <!-- Macro -->
+      <div class="card">
+        <div class="sec">Macro context</div>
+        <div class="macro-grid">
+          <div class="mpill"><div class="lbl">1h change</div><div class="val" id="m1h">—</div></div>
+          <div class="mpill"><div class="lbl">24h high</div><div class="val" id="m24h">—</div></div>
+          <div class="mpill"><div class="lbl">24h low</div><div class="val" id="m24l">—</div></div>
+          <div class="mpill"><div class="lbl">24h volume</div><div class="val" id="mvol">—</div></div>
+          <div class="mpill"><div class="lbl">EMA 9</div><div class="val" id="mema9">—</div></div>
+          <div class="mpill"><div class="lbl">EMA 21</div><div class="val" id="mema21">—</div></div>
+        </div>
+      </div>
+
+      <!-- Signals + AI -->
+      <div class="g2">
+        <div class="card"><div class="sec">Technical signals</div><div id="siglist">—</div></div>
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <div>
+            <div class="sec">Price — last 60 min (BRTI blend)</div>
+            <div class="mstats">
+              <div class="mstat">HIGH <span id="shi">—</span></div>
+              <div class="mstat">LOW <span id="slo">—</span></div>
+              <div class="mstat">RANGE <span id="srng">—</span></div>
+            </div>
+            <div class="chart-wrap"><canvas id="spark" role="img" aria-label="BTC price last 60 minutes"></canvas></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div class="sec" style="margin-bottom:0">AI insight</div>
+              <button id="aiRunBtn" onclick="runAIManual()" style="font-size:11px;background:none;border:1px solid var(--border2);color:var(--text2);border-radius:5px;padding:3px 12px;cursor:pointer;font-family:inherit;letter-spacing:.05em;transition:all .15s" onmouseover="this.style.borderColor='var(--green-strong)';this.style.color='var(--green-strong)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text2)'">▶ RUN</button>
+            </div>
+            <div class="ai-box" id="aibox" style="color:var(--text3)">Press RUN to generate AI insight for current conditions.</div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:10px">
+            <div class="sec">Entry timing</div>
+            <div class="trow"><div class="tdot" style="background:var(--green)"></div><div><strong style="color:var(--text)">0–3 min:</strong> Max payout, direction unknown. Strong signals only.</div></div>
+            <div class="trow"><div class="tdot" style="background:var(--blue)"></div><div><strong style="color:var(--text)">3–8 min:</strong> Trend forming — good risk/reward zone.</div></div>
+            <div class="trow"><div class="tdot" style="background:var(--red)"></div><div><strong style="color:var(--text)">8+ min:</strong> High conviction only — payout shrinks.</div></div>
+            <div id="tnow" style="margin-top:7px;padding:8px 11px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--text2)"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main-col -->
+
+    <!-- History sidebar -->
+    <div class="sidebar">
+      <div class="hist-sidebar">
+        <div>
+          <div class="sec" style="margin-bottom:6px">Prediction accuracy</div>
+          <div class="acc-row" style="flex-direction:column;gap:6px">
+            <span class="acc-pill ap-3" id="acc3">3m: —</span>
+            <span class="acc-pill ap-6" id="acc6">6m: —</span>
+            <span class="acc-pill ap-10" id="acc10">10m: —</span>
+            <span class="acc-pill ap-all" id="accAll">Overall: —</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="xbtn" id="expandBtn" onclick="toggleExpand()">SHOW ALL</button>
+          <button class="xbtn" onclick="exportCSV()">CSV</button>
+          <button class="danger-btn" onclick="clearHistory()">CLEAR</button>
+        </div>
+        <div style="font-size:10px;color:var(--text3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;gap:10px;flex-wrap:wrap">
+          <span><span style="color:var(--amber)">●</span> 3m</span>
+          <span><span style="color:var(--purple)">●</span> 6m</span>
+          <span><span style="color:var(--blue)">●</span> 10m</span>
+          <span>✓=correct · ✗=wrong · Y/N=bet · —=skip/pending</span>
+        </div>
+        <div style="overflow-x:auto">
+          <div id="histWrap" class="hist-collapsed">
+            <table class="hist-table hist-sidebar">
+              <thead><tr>
+                <th class="col-time">Time</th>
+                <th class="col-strike" style="color:var(--amber)">Strike</th>
+                <th class="col-result">Result</th>
+                <th class="col-snap" style="color:var(--amber)">3m</th>
+                <th class="col-snap" style="color:var(--purple)">6m</th>
+                <th class="col-snap" style="color:var(--blue)">10m</th>
+              </tr></thead>
+              <tbody id="histBody"></tbody>
+            </table>
+            <div id="histEmpty" style="font-size:11px;color:var(--text3);padding:14px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+              Snapshots logged at 3, 6, and 10 min. Resolved from Kalshi BRTI.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /sidebar -->
+
+  </div><!-- /main-with-sidebar -->
+</main>
+
+<div class="statusbar">
+  <div><span class="sdot-live"></span><span id="stL">READY</span></div>
+  <div id="stR">—</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════
+const BUILD='4.4';
+const ITV=15*60*1000;
+const SNAP_MARKS=[3,6,10];
+const KALSHI_BASE='https://api.elections.kalshi.com/trade-api/v2';
+
+// ── AI ENABLED TOGGLE — defined first so button onclick works ──
+const getAiEnabled=()=>localStorage.getItem('ai_enabled')!=='false';
+function setAiEnabled(v){localStorage.setItem('ai_enabled',v?'true':'false');updateAiToggle();}
+function updateAiToggle(){
+  const btn=document.getElementById('aiToggleBtn');
+  if(!btn)return;
+  const on=getAiEnabled();
+  btn.textContent=on?'AI: ON':'AI: OFF';
+  btn.style.color=on?'var(--green-strong)':'var(--text3)';
+  btn.style.borderColor=on?'var(--green-strong-b)':'var(--border)';
+}
+
+// ══════════════════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════════════════
+function toggleTheme(){
+  const h=document.documentElement,dark=h.getAttribute('data-theme')==='dark';
+  h.setAttribute('data-theme',dark?'light':'dark');
+  document.getElementById('themeBtn').textContent=dark?'🌙':'☀';
+  localStorage.setItem('btc_theme',dark?'light':'dark');
+  if(window._lastA)redrawChart(window._lastA);
+}
+(function(){
+  const s=localStorage.getItem('btc_theme')||'dark';
+  document.documentElement.setAttribute('data-theme',s);
+  document.getElementById('themeBtn').textContent=s==='dark'?'☀':'🌙';
+})();
+
+// ══════════════════════════════════════════════════════
+// GITHUB TOGGLE
+// ══════════════════════════════════════════════════════
+function toggleGH(){
+  const b=document.getElementById('ghBox');
+  const btn=document.querySelector('.hbtn:nth-of-type(2)');
+  const shown=b.style.display==='block';
+  b.style.display=shown?'none':'block';
+  btn.textContent=shown?'GITHUB ▲':'GITHUB ▼';
+}
+
+// ══════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════
+const getKey=()=>localStorage.getItem('anthropic_key')||'';
+const getSbUrl=()=>localStorage.getItem('sb_url')||'';
+const getSbKey=()=>localStorage.getItem('sb_key')||'';
+function openSettings(){
+  document.getElementById('keyInput').value=getKey();
+  document.getElementById('sbUrl').value=getSbUrl();
+  document.getElementById('sbKey').value=getSbKey();
+  document.getElementById('cfWorkerInput').value=getCfWorker();
+  document.getElementById('settingsModal').classList.remove('hidden');
+}
+function closeSettings(){document.getElementById('settingsModal').classList.add('hidden');}
+function saveSettings(){
+  const k=document.getElementById('keyInput').value.trim();
+  const su=document.getElementById('sbUrl').value.trim();
+  const sk=document.getElementById('sbKey').value.trim();
+  k?localStorage.setItem('anthropic_key',k):localStorage.removeItem('anthropic_key');
+  su?localStorage.setItem('sb_url',su):localStorage.removeItem('sb_url');
+  sk?localStorage.setItem('sb_key',sk):localStorage.removeItem('sb_key');
+  const cfw=document.getElementById('cfWorkerInput').value.trim();
+  cfw?localStorage.setItem(CF_WORKER_KEY,cfw):localStorage.removeItem(CF_WORKER_KEY);
+  closeSettings();updateDbBadge();updateAiToggle();
+}
+function updateDbBadge(){
+  const el=document.getElementById('dbBadge');
+  if(getSbUrl()&&getSbKey()){el.textContent='DB: ON';el.className='db-badge db-on';}
+  else{el.textContent='DB: OFF';el.className='db-badge db-off';}
+}
+document.getElementById('settingsModal').addEventListener('click',e=>{if(e.target===document.getElementById('settingsModal'))closeSettings();});
+updateDbBadge();
+updateAiToggle();
+
+// ══════════════════════════════════════════════════════
+// SUPABASE
+// ══════════════════════════════════════════════════════
+async function sbFetch(path,method='GET',body=null){
+  const url=getSbUrl(),key=getSbKey();if(!url||!key)return null;
+  const opts={method,headers:{'Content-Type':'application/json','apikey':key,'Authorization':'Bearer '+key,'Prefer':'resolution=merge-duplicates'}};
+  if(body)opts.body=JSON.stringify(body);
+  try{const r=await fetch(url+'/rest/v1/'+path,opts);return method==='GET'?await r.json():true;}catch{return null;}
+}
+async function sbUpsert(entry){
+  if(!getSbUrl())return;
+  await sbFetch('predictions','POST',{interval_id:entry.intervalId,data:entry,updated_at:new Date().toISOString()});
+}
+async function sbLoad(){
+  if(!getSbUrl())return null;
+  const rows=await sbFetch('predictions?order=interval_id.desc&limit=100');
+  return rows?rows.map(r=>r.data).filter(Boolean):null;
+}
+
+// ══════════════════════════════════════════════════════
+// KALSHI API
+// ══════════════════════════════════════════════════════
+// Cache current ticker
+let _currentKalshiTicker=null;
+let _currentKalshiIid=null;
+let _previousKalshiTicker=null;
+
+// Build ticker from timestamp — confirmed format: YYmonDDHHMM
+// e.g. kxbtc15m-26apr271700 = year 2026, april, day 27, time 17:00 UTC
+function buildKalshiTicker(ts){
+  // Kalshi appears to use Eastern time in tickers, not UTC
+  // EDT = UTC-4, EST = UTC-5. Use UTC-4 (EDT) as Kalshi operates in Eastern time.
+  const edtOffset=4*60*60*1000;
+  const d=new Date(ts-edtOffset); // shift to EDT
+  const yy=String(d.getUTCFullYear()).slice(2);
+  const mon=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getUTCMonth()];
+  const dd=String(d.getUTCDate()).padStart(2,'0');
+  const hh=String(d.getUTCHours()).padStart(2,'0');
+  const mm=String(d.getUTCMinutes()).padStart(2,'0');
+  const baseEdt=`KXBTC15M-${yy}${mon}${dd}${hh}${mm}`;
+  // Also try pure UTC as fallback
+  const du=new Date(ts);
+  const baseUtc=`KXBTC15M-${String(du.getUTCFullYear()).slice(2)}${['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][du.getUTCMonth()]}${String(du.getUTCDate()).padStart(2,'0')}${String(du.getUTCHours()).padStart(2,'0')}${String(du.getUTCMinutes()).padStart(2,'0')}`;
+  // Return all variants to try: EDT with -15, EDT without, UTC with -15, UTC without
+  return [...new Set([baseEdt+'-15', baseEdt, baseUtc+'-15', baseUtc])];
+}
+
+const CF_WORKER_KEY='kalshi_cf_worker';
+function getCfWorker(){return localStorage.getItem(CF_WORKER_KEY)||'';}
+
+async function kalshiDirectFetch(url){
+  const cfWorker=getCfWorker();
+  if(cfWorker){
+    try{
+      const r=await fetch(`${cfWorker}?url=${encodeURIComponent(url)}`,{
+        signal:AbortSignal.timeout(6000)
+      });
+      if(r.ok){
+        const text=await r.text();
+        if(text&&!text.startsWith('<')){
+          const data=JSON.parse(text);
+          // Reject Kalshi error responses
+          if(data.error||data.error_type)return null;
+          return data;
+        }
+      }
+    }catch(e){console.warn('Worker error:',e.message);}
+  }
+
+  // Public CORS proxies — tried in sequence
+  const proxies=[
+    url=>url,
+    url=>`https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+    url=>`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    url=>`https://thingproxy.freeboard.io/fetch/${url}`,
+    url=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  ];
+
+  for(const proxyFn of proxies){
+    try{
+      const proxied=proxyFn(url);
+      const r=await fetch(proxied,{
+        headers:{'Accept':'application/json','User-Agent':'Mozilla/5.0'},
+        signal:AbortSignal.timeout(5000)
+      });
+      if(!r.ok)continue;
+      const text=await r.text();
+      if(!text||text.startsWith('<')||text.startsWith('<!'))continue;
+      const data=JSON.parse(text);
+      if(data.contents)return JSON.parse(data.contents);
+      if(data.error||data.error_type)continue;
+      return data;
+    }catch{continue;}
+  }
+  return null;
+}
+
+async function getCurrentKalshiMarket(){
+  const iid=currentIid();
+  const itvStart=iid*ITV;
+
+  // Try cached ticker — but only if it returned an OPEN market last time
+  // If it's now settled, we need to fetch the NEW open market
+  if(_currentKalshiTicker&&_currentKalshiIid===iid){
+    const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${_currentKalshiTicker}`);
+    if(d?.market){
+      const mkt=d.market;
+      const LIVE_STATUSES=['open','active','initialized'];
+      const isLive=LIVE_STATUSES.includes(mkt.status);
+      const yesBid=parseFloat(mkt.yes_bid_dollars||0);
+      const noBid=parseFloat(mkt.no_bid_dollars||0);
+      const looksSettled=yesBid>=0.99||noBid>=0.99;
+      if(isLive&&!looksSettled)return mkt;
+    }
+    // Null, error, or settled — always bust cache
+    _currentKalshiTicker=null;
+    _currentKalshiIid=null;
+  }
+
+  // New interval or cache busted — try constructed tickers
+  const closeTs=itvStart+ITV;
+  const openTs=itvStart;
+  for(const ts of [closeTs, openTs]){
+    for(const ticker of buildKalshiTicker(ts)){
+      const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${ticker}`);
+      if(d?.market&&['open','active','initialized'].includes(d.market.status)&&parseFloat(d.market.yes_bid_dollars||0)<0.99&&parseFloat(d.market.no_bid_dollars||0)<0.99){
+        _previousKalshiTicker=_currentKalshiTicker;
+        _currentKalshiTicker=d.market.ticker||ticker;
+        _currentKalshiIid=iid;
+        return d.market;
+      }
+    }
+  }
+
+  // Last resort: query series list (requires Worker to bypass 403)
+  const list=await kalshiDirectFetch(`${KALSHI_BASE}/markets?series_ticker=KXBTC15M&status=open&limit=3`);
+  if(list?.markets){
+    const mkt=list.markets[0];
+    if(mkt&&['open','active','initialized'].includes(mkt.status)){
+      _previousKalshiTicker=_currentKalshiTicker;
+      _currentKalshiTicker=mkt.ticker;
+      _currentKalshiIid=iid;
+      return mkt;
+    }
+  }
+
+  return null;
+}
+
+async function getRecentKalshiMarket(iid){
+  const itvEnd=(iid+1)*ITV;
+  const itvStart=iid*ITV;
+  // Try both close time and open time variants
+  for(const ts of [itvEnd, itvStart]){
+    for(const ticker of buildKalshiTicker(ts)){
+      const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${ticker}`);
+      if(d?.market)return d.market;
+    }
+  }
+  return null;
+}
+
+async function fetchKalshiMarket(ticker){
+  const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${ticker}`);
+  return d?.market||null;
+}
+
+async function kalshiTickerForIid(iid){
+  if(iid===_currentKalshiIid)return _currentKalshiTicker;
+  const entry=history.find(h=>h.intervalId===iid);
+  if(entry?.kalshiTicker)return entry.kalshiTicker;
+  return null;
+}
+
+// Resolve pending entries using Kalshi settled series list
+async function resolveFromKalshi(entry){
+  if(entry.kalshiResolved)return entry;
+  let mkt=null;
+
+  // Build tickers to try for this interval's close time
+  // The settled market is named by its close time (interval end)
+  const closeTs=(entry.intervalId+1)*ITV;
+  const tickersToTry=[
+    ...(entry.kalshiTicker?[entry.kalshiTicker]:[]),
+    ...buildKalshiTicker(closeTs),
+    ...buildKalshiTicker(entry.intervalId*ITV), // also try open time
+  ];
+  // Deduplicate
+  const seen=new Set();
+  const unique=tickersToTry.filter(t=>{if(seen.has(t))return false;seen.add(t);return true;});
+
+  for(const ticker of unique){
+    const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${ticker}`);
+    if(d?.market){
+      if(['settled','finalized'].includes(d.market.status)){mkt=d.market;break;}
+      if(['open','active','initialized','closed'].includes(d.market.status))break;
+    }
+  }
+
+  // Fallback: settled series list (works via Worker)
+  if(!mkt){
+    const list=await kalshiDirectFetch(`${KALSHI_BASE}/markets?series_ticker=KXBTC15M&status=settled&limit=20`);
+    if(list?.markets){
+      const itvStart=entry.intervalId*ITV,itvEnd=itvStart+ITV;
+      mkt=list.markets.find(m=>{
+        const close=new Date(m.close_time||m.expiration_time||0).getTime();
+        return close>=itvStart&&close<=itvEnd+60000;
+      })||null;
+    }
+  }
+
+  if(!mkt||!['settled','finalized'].includes(mkt.status))return entry;
+  if(mkt.ticker)entry.kalshiTicker=mkt.ticker;
+
+  const brtiSettle=parseFloat(mkt.expiration_value)||null;
+  const result=mkt.result;
+  const strike=extractStrike(mkt);
+  if(!result)return entry;
+
+  if(brtiSettle)entry.brtiSettle=brtiSettle;
+  entry.kalshiResult=result;
+  if(strike)entry.kalshiStrike=strike;
+  entry.kalshiResolved=true;
+  entry.outcome=result==='yes'?'up':'down';
+
+  for(const mark of SNAP_MARKS){
+    const s=entry.snapshots[mark];
+    if(s&&s.outcome==='pending'){
+      if(s.verdict==='WAIT')s.outcome='skip';
+      else if(s.verdict==='YES')s.outcome=result==='yes'?'correct':'wrong';
+      else if(s.verdict==='NO')s.outcome=result==='no'?'correct':'wrong';
+    }
+  }
+  return entry;
+}
+
+// ══════════════════════════════════════════════════════
+// PREDICTION HISTORY — multi-snapshot
+// ══════════════════════════════════════════════════════
+let history=JSON.parse(localStorage.getItem('btc_history_v3')||'[]');
+let histExpanded=false;
+let snappedThis={}; // {iid: {3:bool,6:bool,10:bool}}
+
+function currentIid(){return Math.floor(Date.now()/ITV);}
+function minIntoInterval(){return(Date.now()%ITV)/60000;}
+function saveHistory(){localStorage.setItem('btc_history_v3',JSON.stringify(history.slice(-100)));}
+
+async function tickHistory(price,verdict,kalshiStrike){
+  const iid=currentIid(),minIn=minIntoInterval();
+
+  // Ensure entry for this interval
+  let entry=history.find(h=>h.intervalId===iid);
+  if(!entry){
+    entry={
+      intervalId:iid,
+      kalshiTicker:_currentKalshiTicker||null,
+      openPrice:price,
+      kalshiStrike:kalshiStrike||null,
+      brtiSettle:null,
+      kalshiResult:null,
+      kalshiResolved:false,
+      outcome:null,
+      snapshots:{},
+      time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+      date:new Date().toLocaleDateString([],{month:'short',day:'numeric'})
+    };
+    history.push(entry);
+  }
+  // Update strike only if it's confirmed for this interval
+  const strikeForThisInterval=(lastKalshiStrikeIid===iid)?lastKalshiStrike:null;
+  if(strikeForThisInterval&&!entry.kalshiStrike)entry.kalshiStrike=strikeForThisInterval;
+
+  // Take snapshots
+  if(!snappedThis[iid])snappedThis[iid]={};
+  for(const mark of SNAP_MARKS){
+    if(minIn>=mark&&minIn<mark+0.6&&!snappedThis[iid][mark]){
+      snappedThis[iid][mark]=true;
+      entry.snapshots[mark]={verdict,price,outcome:verdict==='WAIT'?'skip':'pending'};
+      sbUpsert(entry);
+    }
+  }
+
+  // Try to resolve previous intervals from Kalshi
+  let changed=false;
+  for(let i=0;i<history.length;i++){
+    const h=history[i];
+    if(h.intervalId>=iid)continue;
+    if(h.kalshiResolved)continue;
+    const resolved=await resolveFromKalshi(h);
+    if(resolved.kalshiResolved){history[i]=resolved;changed=true;sbUpsert(resolved);}
+  }
+  if(changed)saveHistory();
+  saveHistory();
+  renderHistory();
+}
+
+function calcAcc(entries,mark){
+  const res=entries.filter(h=>{const s=h.snapshots[mark];return s&&(s.outcome==='correct'||s.outcome==='wrong');});
+  if(!res.length)return null;
+  const c=res.filter(h=>h.snapshots[mark].outcome==='correct').length;
+  return{correct:c,total:res.length,pct:Math.round(c/res.length*100)};
+}
+
+function snapDot(snap){
+  if(!snap)return`<span class="sdot sd-sk" title="No snapshot">—</span>`;
+  if(snap.outcome==='skip')return`<span class="sdot sd-sk" title="WAIT — no bet taken">—</span>`;
+  const dir=snap.verdict==='YES'?'Y':'N';
+  const px='$'+Math.round(snap.price||0).toLocaleString();
+  if(snap.outcome==='pending'){
+    return`<span class="sdot sd-pn" title="Pending ${snap.verdict} @ ${px}" style="flex-direction:column;gap:0;line-height:1;font-size:9px">${dir}<span style="font-size:7px;opacity:.7">?</span></span>`;
+  }
+  const isCorrect=snap.outcome==='correct';
+  const cls=snap.verdict==='YES'?(isCorrect?'sd-yc':'sd-yw'):(isCorrect?'sd-nc':'sd-nw');
+  const icon=isCorrect?'✓':'✗';
+  return`<span class="sdot ${cls}" title="${isCorrect?'✓ CORRECT':'✗ WRONG'}: ${snap.verdict} @ ${px}" style="flex-direction:column;gap:0;line-height:1;font-size:11px">${icon}<span style="font-size:7px;font-weight:600;opacity:.85">${dir}</span></span>`;
+}
+
+function drawMiniCurve(id,entries,mark){
+  const c=document.getElementById(id);if(!c)return;
+  const ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);
+  const res=entries.filter(h=>{const s=h.snapshots[mark];return s&&(s.outcome==='correct'||s.outcome==='wrong');});
+  if(res.length<2)return;
+  const pts=res.map((_,i)=>{
+    const w=res.slice(Math.max(0,i-4),i+1);
+    return w.filter(h=>h.snapshots[mark].outcome==='correct').length/w.length;
+  });
+  ctx.beginPath();
+  pts.forEach((v,i)=>{const x=i/(pts.length-1)*W,y=H-v*H*.8-H*.1;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  const last=pts[pts.length-1];
+  ctx.strokeStyle=last>=0.6?'#0FA868':last>=0.45?'#E8A030':'#D03030';
+  ctx.lineWidth=1.5;ctx.stroke();
+  ctx.beginPath();ctx.setLineDash([2,2]);
+  ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);
+  ctx.strokeStyle='rgba(128,128,128,0.25)';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+}
+
+function renderHistory(){
+  const all=history.slice().reverse();
+  const show=histExpanded?all:all.slice(0,10);
+  const body=document.getElementById('histBody');
+  const empty=document.getElementById('histEmpty');
+
+  // Accuracy pills
+  for(const mark of SNAP_MARKS){
+    const acc=calcAcc(all,mark);
+    const el=document.getElementById('acc'+mark);
+    if(acc){
+      const col=acc.pct>=60?'var(--green-strong)':acc.pct>=45?'var(--amber)':'var(--red-strong)';
+      el.textContent=mark+'m: '+acc.correct+'/'+acc.total+' ('+acc.pct+'%)';
+      el.style.color=col;
+    }else{el.textContent=mark+'m: pending';el.style.color='';}
+  }
+  const res=all.filter(h=>h.kalshiResolved);
+  if(res.length){
+    let c=0,t=0;
+    for(const h of res){
+      const s=h.snapshots[6]||h.snapshots[3]||h.snapshots[10];
+      if(s&&(s.outcome==='correct'||s.outcome==='wrong')){t++;if(s.outcome==='correct')c++;}
+    }
+    const p=t?Math.round(c/t*100):null;
+    const el=document.getElementById('accAll');
+    el.textContent=p!=null?'Overall: '+c+'/'+t+' ('+p+'%)'+'':'Overall: pending';
+    if(p!=null)el.style.color=p>=60?'var(--green-strong)':p>=45?'var(--amber)':'var(--red-strong)';
+  }
+
+  if(!all.length){body.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+
+  let rows='';
+  show.forEach((h,i)=>{
+    const isExtra=i>=10;
+    const isResolved=h.kalshiResolved;
+    // Row tint
+    let rowBg='';
+    if(isResolved){
+      const s=h.snapshots[6]||h.snapshots[3]||h.snapshots[10];
+      if(s&&s.outcome==='correct')rowBg='background:rgba(15,168,104,0.05)';
+      else if(s&&s.outcome==='wrong')rowBg='background:rgba(208,48,48,0.05)';
+    }
+    // Result
+    let resultHtml='<span style="color:var(--text3);font-size:11px">—</span>';
+    if(isResolved&&h.kalshiResult){
+      const isYes=h.kalshiResult==='yes';
+      resultHtml='<span style="font-weight:800;font-size:13px;color:'+(isYes?'var(--green-strong)':'var(--red-strong)')+'">'+( isYes?'✓ YES':'✗ NO')+'</span>';
+    }
+    // Move vs strike
+    let moveBadge='<span style="color:var(--text3)">—</span>';
+    if(isResolved&&h.brtiSettle&&h.kalshiStrike){
+      const diff=h.brtiSettle-h.kalshiStrike;
+      const pct=(diff/h.kalshiStrike*100).toFixed(3);
+      const isUp=diff>0;
+      moveBadge='<span style="font-weight:700;color:'+(isUp?'var(--green-strong)':'var(--red-strong)')+'">'+( isUp?'+':'')+pct+'%</span>';
+    }
+    // Snapshot score summary
+    const snaps=SNAP_MARKS.map(m=>h.snapshots[m]).filter(Boolean);
+    const correct=snaps.filter(s=>s.outcome==='correct').length;
+    const total=snaps.filter(s=>s.outcome==='correct'||s.outcome==='wrong').length;
+    let snapSum='';
+    if(total>0){
+      const col=correct===total?'var(--green-strong)':correct===0?'var(--red-strong)':'var(--amber)';
+      snapSum='<span style="font-size:11px;font-weight:700;color:'+col+'">'+correct+'/'+total+'</span> ';
+    }
+    const sid='crv_'+h.intervalId;
+    rows+='<tr class="'+(isExtra?'hist-extra':'')+'" style="'+rowBg+'" title="Strike:'+(h.kalshiStrike?'$'+Math.round(h.kalshiStrike).toLocaleString():'—')+' BRTI:'+(h.brtiSettle?'$'+Math.round(h.brtiSettle).toLocaleString():'pending')+'">'+
+      '<td class="col-time"><span style="color:var(--text);font-weight:500;font-size:12px">'+h.time+'</span><span style="color:var(--text3);display:block;font-size:10px">'+h.date+'</span></td>'+
+      '<td class="col-strike">'+(isResolved&&h.kalshiStrike?'<span style="color:var(--amber);font-weight:600;font-size:11px">$'+Math.round(h.kalshiStrike).toLocaleString()+'</span>':'<span style="color:var(--text3)">—</span>')+'</td>'+
+      '<td class="col-result">'+resultHtml+'</td>'+
+      '<td class="col-snap">'+snapDot(h.snapshots[3])+'</td>'+
+      '<td class="col-snap">'+snapDot(h.snapshots[6])+'</td>'+
+      '<td class="col-snap">'+snapDot(h.snapshots[10])+'</td>'+
+      '</tr>';
+  });
+  body.innerHTML=rows;
+  document.getElementById('expandBtn').textContent=histExpanded?'SHOW LESS':'SHOW ALL ('+all.length+')';
+  document.getElementById('histWrap').className=histExpanded?'':'hist-collapsed';
+}
+
+function toggleExpand(){histExpanded=!histExpanded;renderHistory();}
+
+function clearHistory(){
+  if(!confirm('Clear all prediction history? This cannot be undone.'))return;
+  history=[];
+  snappedThis={};
+  saveHistory();
+  renderHistory();
+}
+
+function exportCSV(){
+  const rows=[['Date','Time','IntervalID','KalshiStrike','BRTISettle','KalshiResult','3m_Verdict','3m_Price','3m_Outcome','6m_Verdict','6m_Price','6m_Outcome','10m_Verdict','10m_Price','10m_Outcome']];
+  history.slice().reverse().forEach(h=>{
+    const s3=h.snapshots[3]||{},s6=h.snapshots[6]||{},s10=h.snapshots[10]||{};
+    rows.push([h.date,h.time,h.intervalId,h.kalshiStrike||'',h.brtiSettle||'',h.kalshiResult||'',
+      s3.verdict||'',s3.price?Math.round(s3.price):'',s3.outcome||'',
+      s6.verdict||'',s6.price?Math.round(s6.price):'',s6.outcome||'',
+      s10.verdict||'',s10.price?Math.round(s10.price):'',s10.outcome||'']);
+  });
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n'));
+  a.download=`kalshi_btc_build15_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════
+// INDICATORS
+// ══════════════════════════════════════════════════════
+const ema=(arr,p)=>{if(!arr.length)return 0;if(arr.length<=p)return arr.at(-1);const k=2/(p+1);let e=arr.slice(0,p).reduce((a,b)=>a+b,0)/p;for(let i=p;i<arr.length;i++)e=arr[i]*k+e*(1-k);return e;};
+const rsi=(arr,p=14)=>{if(arr.length<p+1)return 50;let g=0,l=0;for(let i=arr.length-p;i<arr.length;i++){const d=arr[i]-arr[i-1];d>0?g+=d:l-=d;}return 100-100/(1+(g/(l||.001)));};
+const macdFn=arr=>{if(arr.length<26)return{hist:0};const m=ema(arr,12)-ema(arr,26);const sv=[];for(let i=Math.max(0,arr.length-9);i<arr.length;i++)sv.push(ema(arr.slice(0,i+1),12)-ema(arr.slice(0,i+1),26));return{hist:m-ema(sv,9)};};
+const bband=(arr,p=20)=>{if(arr.length<p)return{pct:.5};const sl=arr.slice(-p),mid=sl.reduce((a,b)=>a+b,0)/p;const std=Math.sqrt(sl.reduce((a,b)=>a+(b-mid)**2,0)/p);const u=mid+2*std,lo=mid-2*std;return{pct:(arr.at(-1)-lo)/((u-lo)||1)};};
+function slope(arr,n=5){const s=arr.slice(-n);if(s.length<2)return 0;const mid=s[0];let sx=0,sy=0,sxy=0,sxx=0;for(let i=0;i<s.length;i++){sx+=i;sy+=s[i]-mid;sxy+=i*(s[i]-mid);sxx+=i*i;}return((s.length*sxy-sx*sy)/(s.length*sxx-sx*sx||1))/mid*100;}
+
+function analyze(closes,volumes,kalshiImplied=null){
+  const last=closes.at(-1);
+  const r=rsi(closes),m=macdFn(closes),b=bband(closes);
+  const e9=ema(closes,9),e21=ema(closes,21),e50=ema(closes,50);
+  const avgV=volumes.slice(-20).reduce((a,b)=>a+b,0)/20,vr=(volumes.at(-1)||1)/(avgV||1);
+  const c1=closes.length>60?((last-closes[closes.length-61])/closes[closes.length-61]*100).toFixed(2):((last-closes[0])/closes[0]*100).toFixed(2);
+  const c4=closes.length>240?((last-closes[closes.length-241])/closes[closes.length-241]*100).toFixed(2):c1;
+
+  const msIn=Date.now()%ITV,minIn=msIn/60000,pct=msIn/ITV;
+  const itvOpenIdx=Math.max(0,closes.length-1-Math.round(minIn));
+  const itvOpen=closes[itvOpenIdx]||last;
+  const itvMove=((last-itvOpen)/itvOpen)*100;
+  const vel3=slope(closes,3),vel8=slope(closes,8),velAccel=vel3-vel8;
+
+  const lateW=Math.pow(pct,1.5)*4,tradSc=Math.max(0.4,1-pct*0.6);
+
+  // Kalshi implied probability as a dynamic signal
+  // Weight = pct² × KALSHI_WEIGHT_MULT — quadratic growth, dominates late interval
+  // TUNING: increase KALSHI_WEIGHT_MULT if Kalshi is being overridden too often late
+  //         decrease if Kalshi is dominating too early or at low confidence
+  const KALSHI_WEIGHT_MULT=14; // was 8 — raised because 1-2% Kalshi implies near-certain outcome
+  const kalshiW=kalshiImplied!==null ? Math.pow(pct,2)*KALSHI_WEIGHT_MULT : 0;
+  const kalshiD=kalshiImplied!==null
+    ? (kalshiImplied>55?'b':kalshiImplied<45?'s':'n')
+    : 'n';
+  const kalshiDesc=kalshiImplied!==null
+    ? `Market implies ${kalshiImplied.toFixed(1)}% YES`
+    : 'No Kalshi data';
+
+  const sigs=[
+    {n:'RSI (14)',v:r.toFixed(1),d:r>55?'b':r<45?'s':'n',desc:r>55?'Momentum positive':r<45?'Momentum fading':'Neutral zone',w:1.5*tradSc,phase:'trad'},
+    {n:'MACD histogram',v:m.hist.toFixed(2),d:m.hist>0?'b':'s',desc:m.hist>0?'Bullish histogram':'Bearish histogram',w:1.5*tradSc,phase:'trad'},
+    {n:'EMA 9/21 cross',v:e9>e21?'9>21':'9<21',d:e9>e21?'b':'s',desc:e9>e21?'Short trend bullish':'Short trend bearish',w:2*tradSc,phase:'trad'},
+    {n:'Price vs EMA 50',v:last>e50?'Above':'Below',d:last>e50?'b':'s',desc:last>e50?'Above mid-term MA':'Below mid-term MA',w:1*tradSc,phase:'trad'},
+    {n:'Bollinger %B',v:(b.pct*100).toFixed(0)+'%',d:b.pct>.6?'b':b.pct<.4?'s':'n',desc:b.pct>.6?'Upper band pressure':b.pct<.4?'Lower band zone':'Mid-band',w:1*tradSc,phase:'trad'},
+    {n:'Volume vs avg',v:vr.toFixed(2)+'x',d:vr>1.3?'b':vr<.7?'s':'n',desc:vr>1.3?'Elevated conviction':vr<.7?'Low conviction':'Normal volume',w:.5*tradSc,phase:'trad'},
+    {n:'Velocity (3m)',v:(vel3>=0?'+':'')+vel3.toFixed(4)+'%/m',d:vel3>.005?'b':vel3<-.005?'s':'n',desc:vel3>.005?'Rising fast':vel3<-.005?'Falling fast':'Flat',w:1+lateW,phase:'live'},
+    {n:'Vel acceleration',v:(velAccel>=0?'+':'')+velAccel.toFixed(4),d:velAccel>.003?'b':velAccel<-.003?'s':'n',desc:velAccel>.003?'Accelerating up':velAccel<-.003?'Decelerating':'Steady',w:.5+lateW*.6,phase:'live'},
+    {n:'Interval move',v:(itvMove>=0?'+':'')+itvMove.toFixed(3)+'%',d:itvMove>.08?'b':itvMove<-.08?'s':'n',desc:`${minIn.toFixed(1)}m in: ${itvMove>=0?'up':'dn'} since open`,w:Math.max(0.1,lateW*1.2),phase:'live'},
+    {n:'Kalshi implied',v:kalshiImplied!==null?kalshiImplied.toFixed(1)+'%':'—',d:kalshiD,desc:kalshiDesc,w:kalshiW,phase:'kalshi'},
+  ];
+
+  let bw=0,dw=0;sigs.forEach(s=>s.d==='b'?bw+=s.w:s.d==='s'?dw+=s.w:0);
+  const t=bw+dw,bs=t>0?bw/t:.5;
+  let verdict,conf;
+  // TUNING: verdict thresholds — tighter = less WAIT/SKIP, wider = more conservative
+  const BULL_THRESH=0.60, BEAR_THRESH=0.40; // was 0.62/0.38
+  if(bs>BULL_THRESH){verdict='YES';conf=Math.min(95,50+(bs-.5)*200);}
+  else if(bs<BEAR_THRESH){verdict='NO';conf=Math.min(95,50+(.5-bs)*200);}
+  else{verdict='WAIT';conf=38+Math.abs(bs-.5)*60;}
+
+  // Late velocity override — SUPPRESSED when Kalshi strongly disagrees
+  // e.g. vel says YES but Kalshi <20% → don't override
+  if(pct>.7&&Math.abs(vel3)>.02){
+    const vo=vel3>0?'YES':'NO';
+    const kalshiAgreesOrAbsent=kalshiImplied===null
+      ||(vo==='YES'&&kalshiImplied>30)
+      ||(vo==='NO'&&kalshiImplied<70);
+    if(vo!==verdict&&kalshiAgreesOrAbsent){
+      verdict=vo;conf=Math.min(82,55+Math.abs(vel3)*500);
+    }
+  }
+
+  // Divergence warning: model vs Kalshi > 30pp at >50% elapsed
+  let kalshiDivergence=null;
+  if(kalshiImplied!==null&&pct>.5){
+    const modelPct=verdict==='YES'?conf:verdict==='NO'?100-conf:50;
+    const diff=Math.abs(modelPct-kalshiImplied);
+    if(diff>30)kalshiDivergence={modelPct,kalshiImplied,diff};
+  }
+
+  return{sigs,verdict,conf,rsi:r,e9,e21,e50,c1,c4,vr,bs,last,closes,volumes,vel3,velAccel,itvMove,minIn,pct,kalshiImplied,kalshiDivergence};
+}
+
+// ══════════════════════════════════════════════════════
+// DATA FETCHING — BRTI blend (Coinbase mid + Kraken mid + Gemini)
+// ══════════════════════════════════════════════════════
+function lmsg(m,s=''){document.getElementById('lmsg').textContent=m;document.getElementById('lsrc').textContent=s;}
+
+// Get Coinbase mid-price (bid+ask)/2 for each candle — closer to BRTI order-book basis
+async function fetchCoinbase(){
+  lmsg('FETCHING COINBASE (BRTI constituent)...','api.exchange.coinbase.com');
+  const end=new Date().toISOString(),start=new Date(Date.now()-300*60*1000).toISOString();
+  const [k,bk,t]=await Promise.all([
+    fetch(`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60&start=${start}&end=${end}`).then(r=>{if(!r.ok)throw new Error('CB klines '+r.status);return r.json();}),
+    fetch('https://api.exchange.coinbase.com/products/BTC-USD/book?level=1').then(r=>r.json()),
+    fetch('https://api.exchange.coinbase.com/products/BTC-USD/stats').then(r=>r.json())
+  ]);
+  const sorted=k.slice().reverse();
+  // Use mid-price for candle closes: approximate from OHLC mid
+  const closes=sorted.map(c=>(parseFloat(c[2])+parseFloat(c[3]))/2); // (high+low)/2
+  const volumes=sorted.map(c=>c[5]);
+  const bid=parseFloat(bk.bids?.[0]?.[0]||0);
+  const ask=parseFloat(bk.asks?.[0]?.[0]||0);
+  const spotMid=bid&&ask?(bid+ask)/2:parseFloat(t.last);
+  return{closes,volumes,spotMid,tick:{highPrice:t.high,lowPrice:t.low,quoteVolume:parseFloat(t.volume)*spotMid},src:'COINBASE'};
+}
+
+async function fetchKrakenMid(){
+  lmsg('FETCHING KRAKEN (BRTI constituent)...','api.kraken.com');
+  const [ok,ot]=await Promise.all([
+    fetch('https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=1').then(r=>r.json()),
+    fetch('https://api.kraken.com/0/public/Ticker?pair=XBTUSD').then(r=>r.json())
+  ]);
+  if(ok.error?.length)throw new Error(ok.error[0]);
+  const ohlc=ok.result.XXBTZUSD||ok.result[Object.keys(ok.result)[0]];
+  const td=ot.result.XXBTZUSD||ot.result[Object.keys(ot.result)[0]];
+  // Kraken OHLC: [time,open,high,low,close,vwap,volume,count]
+  const closes=ohlc.slice(-300).map(c=>(parseFloat(c[2])+parseFloat(c[3]))/2);
+  const volumes=ohlc.slice(-300).map(c=>parseFloat(c[6]));
+  const bid=parseFloat(td.b[0]),ask=parseFloat(td.a[0]);
+  const spotMid=(bid+ask)/2;
+  return{closes,volumes,spotMid,tick:{highPrice:td.h[1],lowPrice:td.l[1],quoteVolume:parseFloat(td.v[1])*spotMid},src:'KRAKEN'};
+}
+
+async function fetchGemini(){
+  lmsg('FETCHING GEMINI (BRTI constituent)...','api.gemini.com');
+  const [ticker,candles]=await Promise.all([
+    fetch('https://api.gemini.com/v1/pubticker/btcusd').then(r=>r.json()),
+    fetch('https://api.gemini.com/v2/candles/btcusd/1m').then(r=>r.json())
+  ]);
+  const sorted=candles.slice().reverse();
+  const closes=sorted.map(c=>(c[2]+c[3])/2); // (high+low)/2
+  const volumes=sorted.map(c=>c[5]);
+  const bid=parseFloat(ticker.bid),ask=parseFloat(ticker.ask);
+  const spotMid=(bid+ask)/2;
+  return{closes,volumes,spotMid,tick:{highPrice:parseFloat(ticker.volume?.['BTC']||0),lowPrice:0,quoteVolume:0},src:'GEMINI'};
+}
+
+async function fetchBinanceFallback(){
+  lmsg('FETCHING BINANCE (fallback)...','api.binance.com');
+  const [k,t]=await Promise.all([
+    fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=300').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
+    fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT').then(r=>r.json())
+  ]);
+  return{closes:k.map(x=>(parseFloat(x[2])+parseFloat(x[3]))/2),volumes:k.map(x=>parseFloat(x[5])),spotMid:parseFloat(t.lastPrice),tick:t,src:'BINANCE'};
+}
+
+async function fetchData(){
+  // Try BRTI constituent exchanges, blend mid-prices
+  const results=[];
+  const attempts=[
+    async()=>{try{return await fetchCoinbase();}catch(e){console.warn('CB:',e.message);return null;}},
+    async()=>{try{return await fetchKrakenMid();}catch(e){console.warn('Kraken:',e.message);return null;}},
+    async()=>{try{return await fetchGemini();}catch(e){console.warn('Gemini:',e.message);return null;}}
+  ];
+  const fetched=await Promise.all(attempts.map(fn=>fn()));
+  const good=fetched.filter(Boolean);
+
+  if(!good.length){
+    // All BRTI sources failed — fall back to Binance
+    return await fetchBinanceFallback();
+  }
+
+  // Use the longest closes array as base, blend spot mids
+  const base=good.reduce((a,b)=>b.closes.length>a.closes.length?b:a);
+  const blendedSpot=good.reduce((sum,f)=>sum+f.spotMid,0)/good.length;
+  // Replace last candle close with blended mid
+  const closes=[...base.closes.slice(0,-1),blendedSpot];
+  const srcNames=good.map(f=>f.src).join('+');
+  const tick=good[0].tick; // use first good for 24h stats
+
+  return{closes,volumes:base.volumes,tick,src:srcNames+' MID'};
+}
+
+// ══════════════════════════════════════════════════════
+// KALSHI MARKET UI
+// ══════════════════════════════════════════════════════
+// Extract strike price from any Kalshi market response field
+function extractStrike(mkt){
+  if(!mkt)return null;
+  // 1. custom_strike dict
+  if(mkt.custom_strike&&typeof mkt.custom_strike==='object'){
+    for(const v of Object.values(mkt.custom_strike)){
+      const n=parseFloat(String(v).replace(/,/g,''));if(n>1000)return n;
+    }
+  }
+  // 2. standard numeric fields
+  for(const f of['functional_strike','floor_strike','cap_strike']){
+    const n=parseFloat(mkt[f]);if(n>1000)return n;
+  }
+  // 3. any text field — look for dollar amount or large number near keywords
+  const texts=[mkt.yes_sub_title,mkt.no_sub_title,mkt.subtitle,mkt.title,mkt.rules_primary,mkt.rules_secondary];
+  const combined=texts.filter(Boolean).join(' ');
+  // "$77,240.14" or "$ 77240"
+  let m=combined.match(/\$\s*([\d,]+\.?\d*)/);
+  if(m){const n=parseFloat(m[1].replace(/,/g,''));if(n>1000)return n;}
+  // "at least 77,240.44" / "above 77240"
+  m=combined.match(/(?:least|above|below|at|is)\s+([\d,]+\.?\d+)/i);
+  if(m){const n=parseFloat(m[1].replace(/,/g,''));if(n>1000)return n;}
+  // any large standalone number >10000
+  const nums=combined.match(/\b(\d{5,}(?:\.\d+)?)\b/g);
+  if(nums){for(const s of nums){const n=parseFloat(s);if(n>10000&&n<1000000)return n;}}
+  return null;
+}
+
+let lastKalshiStrike=null;
+let lastKalshiStrikeIid=null;
+let lastKalshiImplied=null; // implied prob from Kalshi order book (0-100)
+
+async function refreshKalshiBar(a){
+  const iid=currentIid();
+  const closeTs=(iid*ITV)+ITV;
+  const attemptedTicker=buildKalshiTicker(closeTs)[0]; // show the -15 variant we try first
+  document.getElementById('kTicker').textContent=attemptedTicker;
+  document.getElementById('kStatus').textContent='...';
+  document.getElementById('kStatus').className='kstatus kstatus-closed';
+
+  // Clear stale strike when interval changes
+  if(lastKalshiStrikeIid!==null&&lastKalshiStrikeIid!==iid){
+    lastKalshiStrike=null;
+    lastKalshiStrikeIid=null;
+    lastKalshiImplied=null;
+    document.getElementById('kStrike').textContent='—';
+    document.getElementById('kYesBid').textContent='—';
+    document.getElementById('kImplied').textContent='—';
+    document.getElementById('kResult').textContent='—';
+    document.getElementById('kSettle').textContent='—';
+  }
+
+  const mkt=await getCurrentKalshiMarket();
+  if(!mkt){
+    document.getElementById('kStatus').textContent='CORS BLOCKED';
+    document.getElementById('kStatus').className='kstatus kstatus-closed';
+    document.getElementById('kTicker').textContent=attemptedTicker+' (all proxies failed)';
+    return;
+  }
+  document.getElementById('kTicker').textContent=mkt.ticker||'';
+  document.getElementById('kUpdated').textContent='updated '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  // Status
+  const statusEl=document.getElementById('kStatus');
+  statusEl.textContent=mkt.status.toUpperCase();
+  statusEl.className='kstatus kstatus-'+(['open','active','initialized'].includes(mkt.status)?'open':['settled','finalized'].includes(mkt.status)?'settled':'closed');
+
+  // Strike — only trust this if market is open (not settled from previous interval)
+  const strike=['open','active','initialized'].includes(mkt.status)?extractStrike(mkt):null;
+  if(strike){lastKalshiStrike=strike;lastKalshiStrikeIid=iid;}
+  document.getElementById('kStrike').textContent=strike?'$'+strike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):(lastKalshiStrike&&lastKalshiStrikeIid===iid?'$'+lastKalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—');
+
+  // Bid/ask + implied prob
+  const yesBid=parseFloat(mkt.yes_bid_dollars)||null;
+  const yesAsk=parseFloat(mkt.yes_ask_dollars)||null;
+  document.getElementById('kYesBid').textContent=yesBid&&yesAsk?`${(yesBid*100).toFixed(0)}¢ / ${(yesAsk*100).toFixed(0)}¢`:'—';
+  const implied=yesBid&&yesAsk?(yesBid+yesAsk)/2*100:null;
+  document.getElementById('kImplied').textContent=implied?implied.toFixed(1)+'%':'—';
+  if(implied!==null)lastKalshiImplied=implied;
+
+  // Settlement
+  const settle=parseFloat(mkt.expiration_value)||null;
+  document.getElementById('kSettle').textContent=settle?'$'+settle.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+  document.getElementById('kResult').textContent=mkt.result?mkt.result.toUpperCase():'—';
+  if(mkt.result){
+    const rEl=document.getElementById('kResult');
+    rEl.style.color=mkt.result==='yes'?'var(--green)':'var(--red)';
+    rEl.style.fontWeight='700';
+  }
+
+  // Model vs Kalshi comparison
+  if(implied&&a){
+    const modelPct=a.verdict==='YES'?a.conf:a.verdict==='NO'?100-a.conf:50;
+    const diff=(modelPct-implied).toFixed(1);
+    const mvk=document.getElementById('modelVsKalshi');
+    mvk.textContent=`Model: ${modelPct.toFixed(0)}% YES  ·  Kalshi implied: ${implied.toFixed(1)}% YES  ·  Δ ${diff>0?'+':''}${diff}pp`;
+    mvk.style.color=Math.abs(diff)>10?'var(--amber)':'var(--text3)';
+  }
+
+  // Resolve any history entries that just settled
+  if(['settled','finalized'].includes(mkt.status)&&settle){
+    let changed=false;
+    history=history.map(h=>{
+      if(h.intervalId!==iid)return h;
+      if(h.kalshiResolved)return h;
+      h.brtiSettle=settle;
+      h.kalshiResult=mkt.result;
+      h.kalshiStrike=strike;
+      h.kalshiResolved=true;
+      h.outcome=mkt.result;
+      for(const mark of SNAP_MARKS){
+        const s=h.snapshots[mark];
+        if(s&&s.outcome==='pending'){
+          if(s.verdict==='WAIT')s.outcome='skip';
+          else if(s.verdict==='YES')s.outcome=mkt.result==='yes'?'correct':'wrong';
+          else if(s.verdict==='NO')s.outcome=mkt.result==='no'?'correct':'wrong';
+        }
+      }
+      sbUpsert(h);changed=true;return h;
+    });
+    if(changed){saveHistory();renderHistory();}
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// AI
+// ══════════════════════════════════════════════════════
+async function streamAI(a,tick){
+  const box=document.getElementById('aibox'),key=getKey();
+  if(!getAiEnabled()){
+    box.className='ai-box';
+    box.innerHTML='<span style="color:var(--text3)">AI insight off — toggle <strong style="color:var(--blue);cursor:pointer" onclick="setAiEnabled(true)">AI: ON</strong> in header to enable.</span>';
+    return;
+  }
+  if(!key){box.className='ai-box';box.innerHTML='<span style="color:var(--text3)">AI disabled — add your Anthropic key in <strong style="color:var(--blue);cursor:pointer" onclick="openSettings()">⚙ Settings</strong>.</span>';return;}
+  box.className='ai-box streaming';box.innerHTML='';
+  const fmt=p=>'$'+Math.round(p).toLocaleString();
+  const fmtK=n=>n>1e9?(n/1e9).toFixed(2)+'B':n>1e6?(n/1e6).toFixed(1)+'M':Math.round(n).toLocaleString();
+  const strikeNote=lastKalshiStrike?`Kalshi target strike: $${lastKalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2})} (BRTI must close above this for YES)`:'';
+  const prompt=`You are a sharp BTC short-term trading analyst for Kalshi 15-minute binary prediction markets.\n\nLive data (BRTI-approximated mid-price blend):\n- BTC BRTI-blend: ${fmt(a.last)} | 1h: ${a.c1}% | 4h: ${a.c4}%\n- 24h H/L: ${fmt(parseFloat(tick.highPrice))} / ${fmt(parseFloat(tick.lowPrice))}\n- RSI: ${a.rsi.toFixed(1)} | MACD: ${macdFn(a.closes).hist.toFixed(3)} | EMA9: ${fmt(a.e9)} | EMA50: ${fmt(a.e50)}\n- Volume: ${a.vr.toFixed(2)}x avg\n${strikeNote}\n\nINTRA-INTERVAL:\n- ${a.minIn.toFixed(1)}m in (${(a.pct*100).toFixed(0)}% elapsed)\n- Velocity 3m: ${(a.vel3>=0?'+':'')+a.vel3.toFixed(4)}%/min | Accel: ${(a.velAccel>=0?'+':'')+a.velAccel.toFixed(4)} | Interval move: ${(a.itvMove>=0?'+':'')+a.itvMove.toFixed(3)}%\n- Model: ${a.verdict} @ ${a.conf.toFixed(0)}% confidence\n\n3 sharp sentences: (1) key live signal and whether it supports YES/NO relative to the Kalshi strike, (2) biggest risk with ${(15-a.minIn).toFixed(1)} min left, (3) hold/enter/exit advice. Numbers only. No disclaimers.`;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':key,'anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,stream:true,messages:[{role:'user',content:prompt}]})});
+    if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'HTTP '+r.status);}
+    const reader=r.body.getReader(),dec=new TextDecoder();let buf='';
+    while(true){const{done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();for(const line of lines){if(line.startsWith('data: ')){try{const d=JSON.parse(line.slice(6));if(d.delta?.text)box.innerHTML+=d.delta.text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');}catch{}}}}
+    box.className='ai-box';
+  }catch(e){
+    box.className='ai-box';
+    if(e.message.includes('401')||e.message.includes('invalid'))box.innerHTML=`Invalid key. <strong style="color:var(--blue);cursor:pointer" onclick="openSettings()">Update →</strong>`;
+    else box.textContent='AI unavailable: '+e.message;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER SIGNALS
+// ══════════════════════════════════════════════════════
+let chart=null;
+function redrawChart(a){
+  const sl=a.closes.slice(-60),isUp=parseFloat(a.c1)>=0;
+  if(chart)chart.destroy();
+  chart=new Chart(document.getElementById('spark'),{type:'line',data:{labels:sl.map(()=>''),datasets:[{data:sl,borderColor:isUp?'#1DB87A':'#E05252',borderWidth:1.5,pointRadius:0,fill:true,backgroundColor:isUp?'rgba(29,184,122,0.08)':'rgba(224,82,82,0.08)',tension:.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false,grace:'3%'}}}});
+}
+
+function renderSignals(a,tick,src){
+  const fmt=p=>'$'+Math.round(p).toLocaleString();
+  const fmtK=n=>n>1e9?(n/1e9).toFixed(2)+'B':n>1e6?(n/1e6).toFixed(1)+'M':Math.round(n).toLocaleString();
+  const ch=parseFloat(a.c1),dir=ch>0?'up':ch<0?'dn':'neu';
+
+  document.getElementById('hPrice').textContent=fmt(a.last);
+  document.getElementById('hChange').textContent=(ch>=0?'+':'')+ch+'% 1h';
+  document.getElementById('hChange').className=dir;
+  document.getElementById('srcBadge').textContent=src;
+
+  const vc=document.getElementById('vcard');
+  vc.className='vcard '+(a.verdict==='YES'?'vy':a.verdict==='NO'?'vn':'vw');
+  document.getElementById('vtitle').textContent=a.verdict==='YES'?'BET YES ↑':a.verdict==='NO'?'BET NO ↓':'WAIT / SKIP';
+  document.getElementById('vsub').textContent=a.verdict==='YES'?'Signals favor price UP':a.verdict==='NO'?'Signals favor price DOWN':'Signals too mixed';
+  document.getElementById('cpct').textContent=a.conf.toFixed(0)+'%';
+  const cb=document.getElementById('cbar');cb.style.width=a.conf+'%';
+  cb.style.background=a.verdict==='YES'?'#1DB87A':a.verdict==='NO'?'#E05252':'#888';
+
+  const bp=(a.bs*100).toFixed(0),dp=(100-a.bs*100).toFixed(0);
+  document.getElementById('bullP').textContent=bp;document.getElementById('bearP').textContent=dp;
+  document.getElementById('bbbar').innerHTML=`<div style="flex:${dp};background:#E05252;opacity:.3;min-width:0"></div><div style="flex:${bp};background:#1DB87A;min-width:0"></div>`;
+
+  const rv=document.getElementById('rsiV');rv.textContent=a.rsi.toFixed(0);rv.className='val '+(a.rsi>65?'up':a.rsi>55?'up-light':a.rsi<35?'dn':a.rsi<45?'dn-light':'neu');
+  const vv=document.getElementById('volV');vv.textContent=a.vr.toFixed(2)+'x';vv.className='val '+(a.vr>1.8?'up':a.vr>1.3?'up-light':a.vr<0.5?'dn':a.vr<.7?'dn-light':'neu');
+  const cv=document.getElementById('ch4V');cv.textContent=(parseFloat(a.c4)>=0?'+':'')+a.c4+'%';cv.className='val '+(parseFloat(a.c4)>0.5?'up':parseFloat(a.c4)>0?'up-light':parseFloat(a.c4)<-0.5?'dn':'dn-light');
+  document.getElementById('velV').textContent=(a.vel3>=0?'+':'')+a.vel3.toFixed(4)+'%/m';document.getElementById('velV').className='val '+(a.vel3>.015?'up':a.vel3>.005?'up-light':a.vel3<-.015?'dn':a.vel3<-.005?'dn-light':'neu');
+  document.getElementById('itvV').textContent=(a.itvMove>=0?'+':'')+a.itvMove.toFixed(3)+'%';document.getElementById('itvV').className='val '+(a.itvMove>.15?'up':a.itvMove>.08?'up-light':a.itvMove<-.15?'dn':a.itvMove<-.08?'dn-light':'neu');
+  document.getElementById('accelV').textContent=(a.velAccel>=0?'+':'')+a.velAccel.toFixed(4);document.getElementById('accelV').className='val '+(a.velAccel>.008?'up':a.velAccel>.003?'up-light':a.velAccel<-.008?'dn':a.velAccel<-.003?'dn-light':'neu');
+
+  document.getElementById('m1h').textContent=(ch>=0?'+':'')+ch+'%';document.getElementById('m1h').className='val '+dir;
+  document.getElementById('m24h').textContent=fmt(parseFloat(tick.highPrice||0));
+  document.getElementById('m24l').textContent=fmt(parseFloat(tick.lowPrice||0));
+  document.getElementById('mvol').textContent=fmtK(parseFloat(tick.quoteVolume||0));
+  document.getElementById('mema9').textContent=fmt(a.e9);document.getElementById('mema9').className='val '+(a.last>a.e9?'up':'dn');
+  document.getElementById('mema21').textContent=fmt(a.e21);document.getElementById('mema21').className='val '+(a.last>a.e21?'up':'dn');
+
+  // Badge helper: bull/bear signals get strong vs light based on magnitude
+  function badgeCls(sig){
+    if(sig.d==='n')return'bn';
+    const isBull=sig.d==='b';
+    // Strong signals: high weight AND clear value
+    const isStrong=sig.w>=(isBull?1.5:1.5)||
+      (sig.n.includes('RSI')&&(parseFloat(sig.v)>65||parseFloat(sig.v)<35))||
+      (sig.n.includes('velocity')&&Math.abs(parseFloat(sig.v))>0.015)||
+      (sig.n.includes('Interval')&&Math.abs(parseFloat(sig.v))>0.15);
+    if(isBull)return isStrong?'bu-s':'bu-l';
+    return isStrong?'bd-s':'bd-l';
+  }
+  const kalshiSig=a.sigs.find(s=>s.phase==='kalshi');
+  const kalshiWLabel=kalshiSig&&kalshiSig.w>0?`(×${kalshiSig.w.toFixed(1)})`:a.kalshiImplied===null?'(no data)':'(×0.0 — early)';
+  document.getElementById('siglist').innerHTML=`
+    <div style="font-size:11px;letter-spacing:.1em;color:var(--text3);margin-bottom:5px;display:flex;justify-content:space-between">
+      <span>TRADITIONAL <span style="opacity:.6">(×${(1-a.pct*.6).toFixed(1)})</span></span>
+    </div>
+    ${a.sigs.filter(s=>s.phase==='trad').map(s=>`<div class="sig-row"><div><div class="sn">${s.n}</div><div class="sd">${s.desc}</div></div><span class="badge ${badgeCls(s)}">${s.d==='b'?'▲ ':s.d==='s'?'▼ ':'— '}${s.v}</span></div>`).join('')}
+    <div style="font-size:11px;letter-spacing:.1em;color:var(--amber);margin:8px 0 5px;display:flex;justify-content:space-between">
+      <span>⚡ LIVE <span style="opacity:.7">(×${(1+Math.pow(a.pct,1.5)*4).toFixed(1)})</span></span>
+      <span style="color:var(--text3)">${a.minIn.toFixed(1)}m elapsed</span>
+    </div>
+    ${a.sigs.filter(s=>s.phase==='live').map(s=>`<div class="sig-row"><div><div class="sn" style="color:${s.d==='b'?'var(--green-strong)':s.d==='s'?'var(--red-strong)':'var(--text2)'}">${s.n}</div><div class="sd">${s.desc}</div></div><span class="badge ${badgeCls(s)}">${s.d==='b'?'▲ ':s.d==='s'?'▼ ':'— '}${s.v}</span></div>`).join('')}
+    <div style="font-size:11px;letter-spacing:.1em;color:var(--blue);margin:8px 0 5px;display:flex;justify-content:space-between">
+      <span>🏦 KALSHI MARKET <span style="opacity:.7">${kalshiWLabel}</span></span>
+    </div>
+    ${a.sigs.filter(s=>s.phase==='kalshi').map(s=>`<div class="sig-row"><div><div class="sn" style="color:${s.d==='b'?'var(--green-strong)':s.d==='s'?'var(--red-strong)':'var(--text2)'}">${s.n}</div><div class="sd">${s.desc}</div></div><span class="badge ${badgeCls(s)}">${s.d==='b'?'▲ ':s.d==='s'?'▼ ':'— '}${s.v}</span></div>`).join('')}
+    ${a.kalshiDivergence?`<div style="font-size:10px;color:var(--amber);padding:5px 0;border-top:1px solid var(--border);margin-top:4px">⚠ Model ${a.kalshiDivergence.modelPct.toFixed(0)}% vs Kalshi ${a.kalshiDivergence.kalshiImplied.toFixed(1)}% — ${a.kalshiDivergence.diff.toFixed(0)}pp divergence</div>`:''}`;
+
+
+  const sl=a.closes.slice(-60),hi=Math.max(...sl),lo=Math.min(...sl);
+  document.getElementById('shi').textContent=fmt(hi);
+  document.getElementById('slo').textContent=fmt(lo);
+  document.getElementById('srng').textContent='$'+Math.round(hi-lo).toLocaleString();
+  redrawChart(a);
+
+  document.getElementById('stL').innerHTML=`<span class="sdot-live"></span>BRTI BLEND — ${src} · Build ${BUILD}`;
+  document.getElementById('stR').textContent='Signals: '+new Date().toLocaleTimeString();
+
+  tickHistory(a.last,a.verdict,lastKalshiStrike);
+}
+
+// ══════════════════════════════════════════════════════
+// TIMER
+// ══════════════════════════════════════════════════════
+let ticker=null;
+function updateTimer(){
+  const toNext=ITV-(Date.now()%ITV),m=Math.floor(toNext/60000),s=Math.floor((toNext%60000)/1000);
+  const el=((ITV-toNext)/ITV*100).toFixed(1);
+  document.getElementById('tfill').style.width=el+'%';
+  document.getElementById('tlabel').textContent=`${m}m ${s}s to next`;
+  const e=parseFloat(el),tnow=document.getElementById('tnow');
+  if(tnow){const[col,zone,tip]=e<25?['#1DB87A','EARLY','Direction unknown — wait for first candle.']:e<60?['#4A8EF0','MID','Trend forming — good entry zone.']:['#E05252','LATE','High conviction only.'];tnow.innerHTML=`<span style="color:${col};font-weight:700">● ${zone} WINDOW</span> — ${tip}`;}
+
+  // Circular signal countdown
+  const circFg=document.getElementById('circFg');
+  const circSec=document.getElementById('circSec');
+  if(circFg&&circSec&&_lastSigRefresh){
+    const secSince=Math.floor((Date.now()-_lastSigRefresh)/1000);
+    const total=Math.round(SIG_ITV/1000);
+    const secLeft=Math.max(0,total-secSince);
+    const circumference=2*Math.PI*22; // r=22
+    const fraction=secLeft/total;
+    const offset=circumference*(1-fraction);
+    circFg.style.strokeDashoffset=offset;
+    // Color: green when fresh, amber in middle, red when about to update
+    const col=fraction>0.5?'var(--green-strong)':fraction>0.2?'var(--amber)':'var(--red-strong)';
+    circFg.style.stroke=col;
+    circSec.textContent=secLeft===0?'…':secLeft;
+    circSec.style.color=col;
+  }
+}
+
+// Manual AI trigger — only way to fire AI insight
+async function runAIManual(){
+  const btn=document.getElementById('aiRunBtn');
+  if(!getAiEnabled()){
+    document.getElementById('aibox').innerHTML='<span style="color:var(--text3)">Enable AI in header first.</span>';
+    return;
+  }
+  if(!window._lastA){
+    document.getElementById('aibox').innerHTML='<span style="color:var(--text3)">No signal data yet — wait for first refresh.</span>';
+    return;
+  }
+  if(btn){btn.textContent='...';btn.disabled=true;}
+  await streamAI(window._lastA,window._lastTick);
+  if(btn){btn.textContent='▶ RUN';btn.disabled=false;}
+}
+
+// ══════════════════════════════════════════════════════
+// LOOPS
+// ══════════════════════════════════════════════════════
+const SIG_ITV=30*1000,KALSHI_ITV=15*1000;
+let sigLoop=null,kalshiLoop=null;
+let _lastSigRefresh=0;
+
+function flashVerdict(){const vc=document.getElementById('vcard');vc.style.transition='opacity .15s';vc.style.opacity='.2';setTimeout(()=>{vc.style.opacity='1';},300);}
+
+async function refreshSignals(){
+  try{
+    const{closes,volumes,tick,src}=await fetchData();
+    const a=analyze(closes,volumes,lastKalshiImplied);
+    const prev=window._lastA?.verdict;
+    window._lastA=a;window._lastTick=tick;
+    _lastSigRefresh=Date.now();
+    if(prev&&prev!==a.verdict)flashVerdict();
+    renderSignals(a,tick,src);
+  }catch(e){console.warn('Signal refresh:',e.message);}
+}
+
+// ══════════════════════════════════════════════════════
+// DEMO
+// ══════════════════════════════════════════════════════
+function loadDemo(){
+  document.getElementById('errbox').style.display='none';
+  document.getElementById('ls').style.display='flex';lmsg('DEMO MODE','simulated');
+  let p=94000*(0.97+Math.random()*.06);const closes=[],vols=[];
+  for(let i=0;i<300;i++){const d=(Math.random()-.49)*.003,j=Math.random()>.97?(Math.random()-.5)*.008:0;p*=(1+d+j);closes.push(p);vols.push(.5+Math.random()*2.5);}
+  const last=closes.at(-1),tick={highPrice:Math.max(...closes)*1.002,lowPrice:Math.min(...closes)*.998,quoteVolume:last*18000};
+  const a=analyze(closes,vols,null);
+  document.getElementById('ls').style.display='none';
+  window._lastA=a;window._lastTick=tick;
+  _lastSigRefresh=Date.now();
+  renderSignals(a,tick,'DEMO');renderHistory();
+  if(ticker)clearInterval(ticker);ticker=setInterval(updateTimer,1000);
+  if(sigLoop)clearInterval(sigLoop);
+  sigLoop=setInterval(()=>{
+    const l=window._lastA;if(!l)return;
+    const c=l.closes.slice();c.push(c.at(-1)*(1+(Math.random()-.49)*.002));c.shift();
+    const v=l.volumes.slice();v.push(.5+Math.random()*2);v.shift();
+    _lastSigRefresh=Date.now();
+    window._lastA=analyze(c,v,null);renderSignals(window._lastA,tick,'DEMO');
+  },SIG_ITV);
+}
+
+// ══════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════
+async function boot(){
+  document.getElementById('errbox').style.display='none';
+  document.getElementById('ls').style.display='flex';lmsg('CONNECTING...','');
+  if(sigLoop)clearInterval(sigLoop);if(kalshiLoop)clearInterval(kalshiLoop);
+  try{
+    lmsg('LOADING HISTORY...','supabase');
+    const remote=await sbLoad();
+    if(remote&&remote.length){history=remote;saveHistory();}
+
+    lmsg('FETCHING BRTI BLEND...','coinbase + kraken + gemini');
+    const{closes,volumes,tick,src}=await fetchData();
+    const a=analyze(closes,volumes,lastKalshiImplied);
+    document.getElementById('ls').style.display='none';
+    window._lastA=a;window._lastTick=tick;
+    _lastSigRefresh=Date.now();
+    renderSignals(a,tick,src);renderHistory();
+    if(ticker)clearInterval(ticker);ticker=setInterval(updateTimer,1000);
+
+    // Immediately try to resolve any pending past intervals
+    (async()=>{
+      const pending=history.filter(h=>!h.kalshiResolved&&h.intervalId<currentIid());
+      if(!pending.length)return;
+      let changed=false;
+      for(const h of pending){
+        const resolved=await resolveFromKalshi(h);
+        if(resolved.kalshiResolved){
+          const idx=history.findIndex(x=>x.intervalId===h.intervalId);
+          if(idx>=0){history[idx]=resolved;changed=true;sbUpsert(resolved);}
+        }
+      }
+      if(changed){saveHistory();renderHistory();}
+    })();
+
+    // Kalshi bar — refresh every 15s
+    await refreshKalshiBar(a);
+    kalshiLoop=setInterval(()=>refreshKalshiBar(window._lastA),KALSHI_ITV);
+
+    // Signals every 30s — no auto-AI
+    sigLoop=setInterval(()=>{_lastSigRefresh=Date.now();refreshSignals();},SIG_ITV);
+
+    // Resolve pending history entries every 2 minutes using settled series list
+    setInterval(async()=>{
+      const pending=history.filter(h=>!h.kalshiResolved&&h.intervalId<currentIid());
+      if(!pending.length)return;
+      let changed=false;
+      for(const h of pending){
+        const resolved=await resolveFromKalshi(h);
+        if(resolved.kalshiResolved){
+          const idx=history.findIndex(x=>x.intervalId===h.intervalId);
+          if(idx>=0){history[idx]=resolved;changed=true;sbUpsert(resolved);}
+        }
+      }
+      if(changed){saveHistory();renderHistory();}
+    },2*60*1000);
+
+  }catch(e){
+    document.getElementById('ls').style.display='none';
+    document.getElementById('errbox').style.display='block';
+    document.getElementById('errmsg').textContent=e.message.split('\n')[0];
+    document.getElementById('errsrc').textContent=e.message.split('\n').slice(1).join(' | ');
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
