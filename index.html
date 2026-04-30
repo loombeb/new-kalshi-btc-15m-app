@@ -765,11 +765,9 @@ function executeBotBet(a,verdict,betSizePct,rationale,minIn){
   bot._bettedIid=iid;
   bot._callsMade=[6,7,8,9,10]; // block all remaining minute calls for this interval
 
-  // Read strike from DOM — kStrike is updated by refreshKalshiBar and always reflects current interval
-  // The global lastKalshiStrike can lag behind by one refresh cycle
-  const kStrikeEl=document.getElementById('kStrike');
-  const kStrikeText=kStrikeEl?kStrikeEl.textContent.replace(/[$,]/g,''):'';
-  const confirmedStrike=parseFloat(kStrikeText)||null;
+  // Don't capture strike at bet time — it may be stale from previous interval.
+  // Strike is populated from confirmed entry.kalshiStrike at settlement.
+  const confirmedStrike=null;
 
   const trade={
     iid,
