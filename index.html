@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kalshi BTC 15m Advisor — Build 17.4</title>
+<title>Kalshi BTC 15m Advisor — Build 17.5</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 /* ── Tokens ───────────────────────────────────────────────────── */
@@ -318,7 +318,7 @@ main{max-width:1200px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-dir
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal-overlay hidden">
   <div class="modal-box">
-    <h2>⚙ SETTINGS — Build 17.4</h2>
+    <h2>⚙ SETTINGS — Build 17.5</h2>
 
     <div>
       <label>Anthropic API Key</label>
@@ -369,7 +369,7 @@ main{max-width:1200px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-dir
 </div>
 
 <header>
-  <div class="logo"><span class="sdot-live" id="liveDot1"></span><span class="sdot-live" id="liveDot2" style="margin-right:6px;animation-delay:.4s"></span>KALSHI BTC 15M <small>v17.4</small></div>
+  <div class="logo"><span class="sdot-live" id="liveDot1"></span><span class="sdot-live" id="liveDot2" style="margin-right:6px;animation-delay:.4s"></span>KALSHI BTC 15M <small>v17.5</small></div>
   <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px">
     <div id="hPrice">—</div><div id="hChange" class="neu">—</div>
     <span id="srcBadge" class="src-badge"></span>
@@ -658,7 +658,7 @@ main{max-width:1200px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-dir
 // ══════════════════════════════════════════════════════
 // CONSTANTS
 // ══════════════════════════════════════════════════════
-const BUILD='17.4';
+const BUILD='17.5';
 const ITV=15*60*1000;
 const SNAP_MARKS=[3,6,10];
 const KALSHI_BASE='https://api.elections.kalshi.com/trade-api/v2';
@@ -2432,8 +2432,16 @@ async function refreshKalshiBar(a){
   document.getElementById('kStatus').textContent='...';
   document.getElementById('kStatus').className='kstatus kstatus-closed';
 
-  // Clear stale strike when interval changes
+  // Clear stale strike when interval changes — but first persist it to the
+  // ending interval's history entry so it survives the transition.
   if(lastKalshiStrikeIid!==null&&lastKalshiStrikeIid!==iid){
+    if(lastKalshiStrike){
+      const endingEntry=history.find(h=>h.intervalId===lastKalshiStrikeIid);
+      if(endingEntry&&!endingEntry.kalshiResolved&&endingEntry.kalshiStrike!==lastKalshiStrike){
+        endingEntry.kalshiStrike=lastKalshiStrike;
+        saveHistory();
+      }
+    }
     lastKalshiStrike=null;
     lastKalshiStrikeIid=null;
     lastKalshiImplied=null;
