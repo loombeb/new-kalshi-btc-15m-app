@@ -1,0 +1,2951 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalshi BTC 15m Advisor — Build 15.5</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+/* ── Tokens ───────────────────────────────────────────────────── */
+:root{
+  /* 4-tier signal colors */
+  --green-strong:#0FA868;   --green-strong-bg:rgba(15,168,104,0.15);  --green-strong-b:rgba(15,168,104,0.45);
+  --green-light:#5DD4A0;    --green-light-bg:rgba(93,212,160,0.1);    --green-light-b:rgba(93,212,160,0.3);
+  --red-strong:#D03030;     --red-strong-bg:rgba(208,48,48,0.15);     --red-strong-b:rgba(208,48,48,0.45);
+  --red-light:#F07878;      --red-light-bg:rgba(240,120,120,0.1);     --red-light-b:rgba(240,120,120,0.3);
+  /* legacy aliases so old code still works */
+  --green:#0FA868;  --green-bg:rgba(15,168,104,0.12);  --green-b:rgba(15,168,104,0.4);
+  --red:#D03030;    --red-bg:rgba(208,48,48,0.12);     --red-b:rgba(208,48,48,0.4);
+  --blue:#4A8EF0;--amber:#E8A030;--purple:#9B6EF0;
+}
+[data-theme="dark"]{
+  --bg:#13131f;--bg2:#1a1a2a;--bg3:#23233a;
+  --border:rgba(255,255,255,0.12);--border2:rgba(255,255,255,0.22);
+  --text:#eeeef8;--text2:#b0b0cc;--text3:#7878a0;--shadow:rgba(0,0,0,0.4);
+}
+[data-theme="light"]{
+  --bg:#ededf2;--bg2:#ffffff;--bg3:#e0e0ea;
+  --border:rgba(0,0,0,0.10);--border2:rgba(0,0,0,0.20);
+  --text:#080814;--text2:#38384e;--text3:#7070a0;--shadow:rgba(0,0,0,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{width:100%}
+body{background:var(--bg);color:var(--text);font-family:'SF Mono','Fira Code',monospace;font-size:15px;min-height:100vh;transition:background .2s,color .2s;width:100%;min-width:320px;overflow-x:hidden}
+
+/* ── Reset + Base ─────────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:'SF Mono','Fira Code',monospace;font-size:15px;transition:background .2s,color .2s;overflow-x:hidden}
+
+/* ── Header ───────────────────────────────────────────────────── */
+header{border-bottom:1px solid var(--border);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:var(--bg);gap:6px;flex-wrap:wrap}
+.logo{font-size:11px;font-weight:700;letter-spacing:.15em;color:var(--text2);white-space:nowrap}
+.logo em{color:var(--green-strong);font-style:normal}
+.logo small{color:var(--text3);font-weight:400}
+#hPrice{font-size:22px;font-weight:700;letter-spacing:-.02em}
+#hChange{font-size:13px;margin-left:6px}
+.up{color:var(--green-strong)}.dn{color:var(--red-strong)}.neu{color:var(--text2)}
+.up-light{color:var(--green-light)}.dn-light{color:var(--red-light)}
+
+/* ── Page wrapper ─────────────────────────────────────────────── */
+main{max-width:1200px;margin:0 auto;padding:12px 12px 80px;display:flex;flex-direction:column;gap:12px}
+
+/* ── Row 1: Full-width interval + accuracy panel ─────────────── */
+.interval-panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;gap:10px}
+
+/* ── Interval chart ───────────────────────────────────────────── */
+.itv-chart-wrap{position:relative;height:280px;width:100%;overflow:visible}
+.itv-chart-wrap canvas{max-width:100%!important;width:100%!important;display:block}
+.itv-toggle-group{display:flex;gap:4px}
+.itv-toggle{font-size:9px;padding:2px 8px;border-radius:4px;cursor:pointer;font-family:inherit;letter-spacing:.05em;border:1px solid var(--border);background:none;color:var(--text3);transition:all .15s}
+.itv-toggle.active{background:var(--bg3);color:var(--text);border-color:var(--border2)}
+#itvDot{position:absolute;width:8px;height:8px;border-radius:50%;border:2px solid var(--bg2);display:none;pointer-events:none}
+@keyframes itv-pulse{0%,100%{box-shadow:0 0 0 0 rgba(15,168,104,.6)}70%{box-shadow:0 0 0 6px rgba(15,168,104,0)}}
+.itv-dot-up{background:var(--green-strong);animation:itv-pulse 1.5s ease-out infinite}
+@keyframes itv-pulse-dn{0%,100%{box-shadow:0 0 0 0 rgba(208,48,48,.6)}70%{box-shadow:0 0 0 6px rgba(208,48,48,0)}}
+.itv-dot-dn{background:var(--red-strong);animation:itv-pulse-dn 1.5s ease-out infinite}
+
+/* ── Horizontal PA history scroll ────────────────────────────── */
+.pa-scroll-outer{overflow-x:auto;padding-bottom:4px}
+.pa-scroll-row{display:flex;flex-direction:row;gap:6px;min-width:max-content;padding:4px 2px}
+.pa-card-latest{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue),0 0 8px rgba(74,142,240,0.25)}
+.pa-card{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 8px;min-width:105px;max-width:105px;flex-shrink:0;cursor:default}
+.pa-card:hover{border-color:var(--border2)}
+.pa-card-time{font-size:10px;font-weight:600;color:var(--text);white-space:nowrap}
+.pa-card-date{font-size:8px;color:var(--text3)}
+.pa-card-strike{font-size:10px;color:var(--amber);font-weight:600;margin-top:3px;white-space:nowrap}
+.pa-card-res{font-size:8px;font-weight:700;margin-top:1px}
+.pa-card-dots{display:flex;gap:3px;margin-top:5px;justify-content:center}
+.pa-card-dots .sdot{width:24px;height:24px;font-size:11px}
+
+/* ── Row 2: Two-column content split ─────────────────────────── */
+.content-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.content-split>*{min-width:0;overflow:hidden}
+@media(max-width:800px){.content-split{grid-template-columns:1fr}}
+@media(max-width:1100px){.three-col-override{grid-template-columns:1fr 1fr!important}}
+@media(max-width:700px){.three-col-override{grid-template-columns:1fr!important}}
+
+/* ── Inner grids ──────────────────────────────────────────────── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.main-with-sidebar{display:flex;flex-direction:column;gap:12px}
+.main-col{display:flex;flex-direction:column;gap:12px}
+.g2>*,.g3>*,.g4>*{min-width:0;overflow:hidden}
+@media(max-width:600px){.g2,.g4{grid-template-columns:1fr}.g3{grid-template-columns:1fr 1fr}}
+
+/* ── Cards ────────────────────────────────────────────────────── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 18px}
+.csm{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px}
+.sec{font-size:11px;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:6px}
+.lbl{font-size:12px;color:var(--text2);margin-bottom:3px}
+.val{font-size:19px;font-weight:700}
+
+/* ── Verdict stability dots ───────────────────────────────────── */
+.stability-row{display:flex;gap:5px;align-items:center;margin-top:4px}
+.stab-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;border:1px solid transparent;cursor:default}
+.stab-yes{background:var(--green-strong);border-color:var(--green-strong-b)}
+.stab-no{background:var(--red-strong);border-color:var(--red-strong-b)}
+.stab-wait{background:var(--text3);border-color:var(--border)}
+.stab-empty{background:var(--bg3);border-color:var(--border)}
+
+/* ── Timeframe toggle ─────────────────────────────────────────── */
+.tf-toggle-group{display:flex;gap:3px;flex-wrap:wrap}
+.tf-toggle{font-size:9px;padding:2px 7px;border-radius:4px;cursor:pointer;font-family:inherit;letter-spacing:.05em;border:1px solid var(--border);background:none;color:var(--text3);transition:all .15s}
+.tf-toggle.active{background:var(--bg3);color:var(--text);border-color:var(--border2)}
+
+/* ── Countdown highlight ──────────────────────────────────────── */
+#tlabel{font-size:12px;font-weight:700;color:var(--text);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;letter-spacing:.04em}
+
+/* ── Paper trading bot panel ──────────────────────────────────── */
+.bot-panel{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;gap:10px}
+.bot-trade-pill{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;letter-spacing:.04em;flex-shrink:0}
+.bot-correct{background:var(--green-strong-bg);color:var(--green-strong);border:1px solid var(--green-strong-b)}
+.bot-wrong{background:var(--red-strong-bg);color:var(--red-strong);border:1px solid var(--red-strong-b)}
+.bot-pending{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+.bot-skip{background:var(--bg3);color:var(--text3);border:1px solid var(--border);opacity:.5}
+.bot-mode-btn{font-size:9px;padding:2px 8px;border-radius:4px;cursor:pointer;font-family:inherit;letter-spacing:.05em;border:1px solid var(--border);background:none;color:var(--text3);transition:all .15s}
+.bot-mode-btn.active{border-color:var(--amber);color:var(--amber);background:rgba(232,160,48,0.08)}
+.bot-trade-scroll{overflow-x:auto;padding-bottom:2px}
+.bot-trade-row{display:flex;flex-direction:row-reverse;gap:5px;min-width:max-content;padding:2px}
+/* Thinking animation */
+.bot-thinking{display:inline-flex;align-items:center;gap:4px;vertical-align:middle}
+.bot-think-dot{width:6px;height:6px;border-radius:50%;background:var(--blue);display:inline-block;animation:bot-think 1.2s ease-in-out infinite}
+.bot-think-dot:nth-child(2){animation-delay:.2s}
+.bot-think-dot:nth-child(3){animation-delay:.4s}
+@keyframes bot-think{0%,80%,100%{transform:scale(0.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+
+/* ── Price chart ──────────────────────────────────────────────── */
+.chart-wrap{position:relative;height:160px;width:100%;overflow:visible}
+.chart-wrap canvas{max-width:100%!important;width:100%!important;display:block}
+#kalshiBar{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.kpill{display:flex;flex-direction:column;gap:2px;min-width:70px}
+.kpill .klbl{font-size:9px;letter-spacing:.1em;color:var(--text3);text-transform:uppercase}
+.kpill .kval{font-size:15px;font-weight:700;color:var(--text)}
+.kpill .kval.strike{color:var(--amber)}
+.kdiv{width:1px;height:28px;background:var(--border);flex-shrink:0}
+.kticker{font-size:10px;color:var(--text3);margin-left:auto;font-style:italic}
+@media(max-width:600px){.kdiv{display:none}#kalshiBar{gap:8px 14px;padding:10px 12px}.kpill{min-width:calc(33% - 10px)}}
+.kstatus{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:700;letter-spacing:.05em}
+.kstatus-open{background:var(--green-strong-bg);color:var(--green-strong);border:1px solid var(--green-strong-b)}
+.kstatus-closed{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+.kstatus-settled{background:rgba(232,160,48,0.12);color:var(--amber);border:1px solid rgba(232,160,48,0.3)}
+
+/* ── Verdict ──────────────────────────────────────────────────── */
+.vcard{border-radius:10px;padding:18px 20px;border:1px solid var(--border);display:flex;flex-direction:column;gap:8px;transition:background .25s,border-color .25s}
+.vy{background:var(--green-strong-bg);border-color:var(--green-strong-b)}
+.vn{background:var(--red-strong-bg);border-color:var(--red-strong-b)}
+.vw{background:var(--bg2)}
+.vtitle{font-size:28px;font-weight:800;letter-spacing:-.03em}
+.vy .vtitle{color:var(--green-strong)}.vn .vtitle{color:var(--red-strong)}.vw .vtitle{color:var(--text2)}
+.vsub{font-size:14px;opacity:.8}
+
+/* ── Bars ─────────────────────────────────────────────────────── */
+.tbar{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;margin:6px 0 3px}
+.tfill{height:100%;border-radius:2px;transition:width 1s linear,background 2s ease}
+@keyframes pulse-glow{0%,100%{box-shadow:0 0 2px 1px currentColor;opacity:1}50%{box-shadow:0 0 5px 2px currentColor;opacity:.92}}
+.tfill-pulse{animation:pulse-glow 1s ease-in-out infinite}
+.btrack{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:4px}
+.bfill{height:100%;border-radius:3px;transition:width .4s}
+
+/* ── Signals ──────────────────────────────────────────────────── */
+.sig-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)}
+.sig-row:last-child{border-bottom:none}
+.sn{font-size:13px;color:var(--text2)}.sd{font-size:11px;color:var(--text3);margin-top:1px}
+/* 4-tier badges: strong/light × green/red */
+.badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px}
+.bu-s{background:var(--green-strong-bg);color:var(--green-strong);border:1px solid var(--green-strong-b)}  /* bull strong */
+.bu-l{background:var(--green-light-bg);color:var(--green-light);border:1px solid var(--green-light-b)}    /* bull light */
+.bd-s{background:var(--red-strong-bg);color:var(--red-strong);border:1px solid var(--red-strong-b)}       /* bear strong */
+.bd-l{background:var(--red-light-bg);color:var(--red-light);border:1px solid var(--red-light-b)}          /* bear light */
+.bn{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}                               /* neutral */
+
+/* ── AI ───────────────────────────────────────────────────────── */
+.ai-box{font-size:14px;color:var(--text2);line-height:1.7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.ai-box strong{color:var(--text);font-weight:600}
+.streaming::after{content:'▋';animation:blink 1s step-end infinite;color:var(--green-strong)}
+@keyframes blink{50%{opacity:0}}
+.trow{display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;color:var(--text2)}
+.tdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+
+/* ── Prediction History ───────────────────────────────────────── */
+.hist-outer{overflow-x:auto}
+.hist-table{width:100%;border-collapse:collapse;font-size:12px}
+.hist-table th{font-size:10px;letter-spacing:.1em;color:var(--text3);text-transform:uppercase;padding:0 8px 8px;text-align:left;font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap}
+.hist-table td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text2)}
+.hist-table tr:last-child td{border-bottom:none}
+.hist-table tbody tr:hover td{background:var(--bg3)}
+.pa-row:hover{background:var(--bg3)}
+
+/* ── Snapshot dots — checkmark/x system ──────────────────────── */
+.sdot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:6px;font-size:13px;font-weight:800;flex-shrink:0;cursor:default;letter-spacing:0}
+.sd-yc{background:var(--green-strong-bg);color:var(--green-strong);border:1px solid var(--green-strong-b)}  /* bet YES, correct → green ▲ */
+.sd-yw{background:var(--red-strong-bg);color:var(--red-strong);border:1px solid var(--red-strong-b)}        /* bet YES, wrong → red ▲ */
+.sd-nc{background:var(--green-strong-bg);color:var(--green-strong);border:1px solid var(--green-strong-b)}  /* bet NO, correct → green ▼ */
+.sd-nw{background:var(--red-strong-bg);color:var(--red-strong);border:1px solid var(--red-strong-b)}        /* bet NO, wrong → red ▼ */
+.sd-sk{background:var(--bg3);color:var(--text3);border:1px solid var(--border);font-size:11px}               /* skip */
+.sd-pn{background:var(--bg3);color:var(--text3);border:1px solid var(--border);opacity:.6;font-size:10px}   /* pending */
+
+/* Accuracy pills */
+.acc-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.acc-pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px}
+.ap-3{background:rgba(232,160,48,.12);color:var(--amber);border:1px solid rgba(232,160,48,.3)}
+.ap-6{background:rgba(155,110,240,.12);color:var(--purple);border:1px solid rgba(155,110,240,.3)}
+.ap-10{background:rgba(74,142,240,.12);color:var(--blue);border:1px solid rgba(74,142,240,.3)}
+.ap-all{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+
+/* Expand */
+.hist-collapsed .hist-extra{display:none}
+.xbtn{font-size:11px;background:none;border:1px solid var(--border);color:var(--text3);border-radius:5px;padding:4px 11px;cursor:pointer;font-family:inherit;letter-spacing:.05em;transition:all .15s}
+.xbtn:hover{border-color:var(--blue);color:var(--blue)}
+
+/* Mini spark in table */
+.tspk{display:inline-block;width:48px;height:18px;vertical-align:middle}
+
+/* ── Status / loading / error ─────────────────────────────────── */
+.statusbar{display:flex;justify-content:space-between;align-items:center;padding:8px 22px;border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;background:var(--bg);font-size:11px;color:var(--text3);letter-spacing:.05em;z-index:9}
+.sdot-live{width:7px;height:7px;border-radius:50%;background:var(--green-strong);display:inline-block;margin-right:5px;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#ls{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:50}
+.spin{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--green-strong);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#lmsg{font-size:12px;color:var(--text2);letter-spacing:.1em}
+#lsrc{font-size:11px;color:var(--text3);margin-top:2px}
+#errbox{display:none;background:var(--red-strong-bg);border:1px solid var(--red-strong-b);border-radius:10px;padding:20px;text-align:center}
+#errbox h3{color:var(--red-strong);margin-bottom:8px;font-size:16px}
+#errmsg{font-size:13px;color:var(--text2);margin-bottom:4px;line-height:1.6}
+#errsrc{font-size:12px;color:var(--text3);margin-bottom:14px}
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.rbtn{background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:6px 13px;font-size:12px;font-family:inherit;cursor:pointer;letter-spacing:.05em;transition:all .15s}
+.rbtn:hover{border-color:var(--green-strong);color:var(--green-strong)}
+.hbtn{font-size:11px;background:none;border:1px solid var(--border);color:var(--text3);border-radius:5px;padding:4px 10px;cursor:pointer;font-family:inherit;letter-spacing:.05em;transition:all .15s}
+.hbtn:hover{border-color:var(--blue);color:var(--blue)}
+@media(max-width:600px){.hbtn-hide-xs{display:none!important}.hbtn-label{display:none}.hbtn{padding:4px 8px}}
+#themeBtn{font-size:15px;background:none;border:1px solid var(--border);color:var(--text2);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;line-height:1.4}
+#themeBtn:hover{border-color:var(--amber)}
+
+/* ── Circular countdown ───────────────────────────────────────── */
+.circ-wrap{position:relative;width:52px;height:52px;flex-shrink:0}
+.circ-wrap svg{position:absolute;top:0;left:0;transform:rotate(-90deg)}
+.circ-bg{fill:none;stroke:var(--border2);stroke-width:3}
+.circ-fg{fill:none;stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset 1s linear,stroke .3s}
+.circ-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text);line-height:1.1}
+.circ-label span{font-size:8px;color:var(--text3);letter-spacing:.05em;font-weight:400}
+
+/* ── History sidebar card — REPLACED by horizontal scroll in 13.6 ── */
+.hist-sidebar{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+
+
+/* ── History clear button ─────────────────────────────────────── */
+.danger-btn{font-size:10px;background:none;border:1px solid var(--red-strong-b);color:var(--red-strong);border-radius:5px;padding:3px 9px;cursor:pointer;font-family:inherit;letter-spacing:.05em;transition:all .15s}
+.danger-btn:hover{background:var(--red-strong-bg)}
+.mpill{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 12px}
+.macro-grid{display:flex;flex-wrap:wrap;gap:8px}
+.macro-grid .mpill{flex:1;min-width:95px}
+/* Prevent any card from breaking its grid column */
+.mstats{display:flex;gap:14px;margin-bottom:5px}
+.mstat{font-size:10px;color:var(--text3)}.mstat span{color:var(--text2);font-weight:700}
+.src-badge{font-size:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text3);padding:2px 8px;border-radius:4px;margin-left:8px;letter-spacing:.05em}
+.db-badge{font-size:10px;padding:2px 8px;border-radius:4px;letter-spacing:.04em}
+.db-on{background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)}
+.db-off{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+
+/* ── Settings modal ───────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:200;backdrop-filter:blur(4px)}
+.modal-overlay.hidden{display:none}
+.modal-box{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:26px 30px;width:480px;max-width:93vw;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow-y:auto}
+.modal-box h2{font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--text)}
+.modal-box p,.modal-box .mnote{font-size:12px;color:var(--text2);line-height:1.6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.modal-box a{color:var(--blue);text-decoration:none}.modal-box a:hover{text-decoration:underline}
+.modal-box label{font-size:10px;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;display:block}
+.minput{background:var(--bg3);border:1px solid var(--border2);border-radius:7px;padding:9px 13px;font-size:12px;font-family:'SF Mono','Fira Code',monospace;color:var(--text);width:100%;outline:none}
+.minput:focus{border-color:var(--green)}.minput::placeholder{color:var(--text3)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.kbtn{background:var(--green);color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:11px;font-family:inherit;font-weight:700;cursor:pointer}
+.kbtn:hover{opacity:.9}
+.kbtn-skip{background:none;border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:8px 14px;font-size:11px;font-family:inherit;cursor:pointer}
+.sql-box{background:var(--bg3);border-radius:6px;padding:9px 11px;font-family:'SF Mono','Fira Code',monospace;font-size:10px;line-height:1.8;color:var(--text3);margin-top:4px}
+
+/* ── GitHub instructions ──────────────────────────────────────── */
+#ghBox{display:none;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
+#ghBox h3{font-size:12px;font-weight:700;letter-spacing:.08em;margin-bottom:12px;color:var(--text)}
+.gh-step{display:flex;gap:10px;margin-bottom:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:12px;color:var(--text2);line-height:1.5}
+.gh-num{width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:1px}
+.gh-step code{background:var(--bg3);border-radius:4px;padding:1px 5px;font-size:11px;color:var(--amber)}
+.gh-note{font-size:11px;color:var(--text3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.6;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+/* ── Alert chime modal ────────────────────────────────────────── */
+#alertPanel{display:none;position:fixed;top:56px;right:12px;z-index:200;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:16px 18px;min-width:220px;box-shadow:0 8px 32px var(--shadow)}
+#alertPanel.open{display:block}
+.alert-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)}
+.alert-row:last-child{border-bottom:none}
+.alert-toggle{appearance:none;width:36px;height:20px;border-radius:10px;background:var(--bg3);border:1px solid var(--border2);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.alert-toggle:checked{background:var(--green-strong);border-color:var(--green-strong)}
+.alert-toggle::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:2px;left:2px;transition:left .2s}
+.alert-toggle:checked::after{left:18px}
+
+</style>
+</head>
+<body>
+
+<div id="ls"><div class="spin"></div><div id="lmsg">INITIALIZING...</div><div id="lsrc"></div></div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h2>⚙ SETTINGS — Build 15.5</h2>
+
+    <div>
+      <label>Anthropic API Key</label>
+      <input class="minput" id="keyInput" type="password" placeholder="sk-ant-api03-..." autocomplete="off"/>
+      <div class="mnote" style="margin-top:5px">Get a key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>. Stored locally, sent only to api.anthropic.com.</div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <label>Supabase Project URL <span style="color:var(--text3);font-size:9px;text-transform:none;letter-spacing:0">(optional — cross-device sync)</span></label>
+      <input class="minput" id="sbUrl" type="text" placeholder="https://xxxx.supabase.co" autocomplete="off"/>
+      <label style="margin-top:10px">Supabase Anon Key</label>
+      <input class="minput" id="sbKey" type="password" placeholder="eyJ..." autocomplete="off"/>
+      <div class="mnote" style="margin-top:6px">Free at <a href="https://supabase.com" target="_blank">supabase.com</a>. Create a project, run this SQL in the editor, then paste your URL + anon key:</div>
+      <div class="sql-box">
+        CREATE TABLE predictions (<br>
+        &nbsp;&nbsp;interval_id BIGINT PRIMARY KEY,<br>
+        &nbsp;&nbsp;data JSONB,<br>
+        &nbsp;&nbsp;updated_at TIMESTAMPTZ DEFAULT NOW()<br>
+        );<br>
+        ALTER TABLE predictions ENABLE ROW LEVEL SECURITY;<br>
+        CREATE POLICY "public rw" ON predictions FOR ALL USING (true);
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <label>Cloudflare Worker URL <span style="color:var(--green-strong);font-size:9px;text-transform:none;letter-spacing:0">★ RECOMMENDED — permanent CORS fix</span></label>
+      <input class="minput" id="cfWorkerInput" type="text" placeholder="https://your-worker.workers.dev" autocomplete="off"/>
+      <div class="mnote" style="margin-top:6px">Free at <a href="https://workers.cloudflare.com" target="_blank">workers.cloudflare.com</a>. Create a Worker, paste this code, deploy, then paste the URL here. Eliminates reliance on third-party proxies.</div>
+      <div class="sql-box" style="margin-top:6px">
+        export default {<br>
+        &nbsp;&nbsp;async fetch(request) {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;const url = new URL(request.url).searchParams.get('url');<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;if (!url) return new Response('Missing url', {status: 400});<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;const res = await fetch(url, {headers: {Accept: 'application/json'}});<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;const body = await res.text();<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;return new Response(body, {headers: {<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Content-Type': 'application/json',<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'Access-Control-Allow-Origin': '*'<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;}});<br>
+        &nbsp;&nbsp;}<br>
+        }
+      </div>
+    </div>
+      <button class="kbtn-skip" onclick="closeSettings()">CANCEL</button>
+      <button class="kbtn" onclick="saveSettings()">SAVE</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo"><em>◈</em> KALSHI BTC 15M <small>v15.5</small></div>
+  <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px">
+    <div id="hPrice">—</div><div id="hChange" class="neu">—</div>
+    <span id="srcBadge" class="src-badge"></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+    <span id="dbBadge" class="db-badge db-off hbtn-hide-xs">DB: OFF</span>
+    <button id="themeBtn" onclick="toggleTheme()">☀</button>
+    <button class="hbtn hbtn-hide-xs" onclick="toggleAlertPanel()" id="alertBtn">🔔 <span class="hbtn-label">ALERTS</span></button>
+    <button class="hbtn" id="aiToggleBtn" onclick="setAiEnabled(!getAiEnabled())"><span class="hbtn-label">AI: </span><span id="aiOnOff">ON</span></button>
+    <button class="hbtn hbtn-hide-xs" onclick="openSettings()">⚙ <span class="hbtn-label">SETTINGS</span></button>
+    <button class="hbtn hbtn-hide-xs" onclick="toggleGH()"><span class="hbtn-label">GITHUB </span>▲</button>
+  </div>
+</header>
+
+<!-- Alert chime panel -->
+<div id="alertPanel">
+  <div style="font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--text2);margin-bottom:8px">🔔 INTERVAL ALERTS</div>
+  <div class="alert-row">
+    <span style="font-size:12px;color:var(--amber)">3m mark</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:10px;color:var(--text3)" id="alert3Label">OFF</span>
+      <input type="checkbox" class="alert-toggle" id="alert3" onchange="toggleAlert(3,this.checked)">
+    </div>
+  </div>
+  <div class="alert-row">
+    <span style="font-size:12px;color:var(--purple)">6m mark</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:10px;color:var(--text3)" id="alert6Label">OFF</span>
+      <input type="checkbox" class="alert-toggle" id="alert6" onchange="toggleAlert(6,this.checked)">
+    </div>
+  </div>
+  <div class="alert-row">
+    <span style="font-size:12px;color:var(--blue)">10m mark</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:10px;color:var(--text3)" id="alert10Label">OFF</span>
+      <input type="checkbox" class="alert-toggle" id="alert10" onchange="toggleAlert(10,this.checked)">
+    </div>
+  </div>
+</div>
+
+<main>
+  <div id="errbox">
+    <h3>⚠ Could not load market data</h3>
+    <div id="errmsg"></div><div id="errsrc"></div>
+    <button class="rbtn" onclick="boot()">↺ RETRY</button>
+    <button class="rbtn" style="margin-left:8px" onclick="loadDemo()">▶ DEMO DATA</button>
+  </div>
+
+  <!-- GitHub Instructions (collapsible) -->
+  <div id="ghBox">
+    <h3>DEPLOYING TO GITHUB PAGES (cross-device + Supabase sync)</h3>
+    <div class="gh-step"><div class="gh-num">1</div><div>Go to <a href="https://github.com/new" target="_blank">github.com/new</a> and create a new repository — name it anything, e.g. <code>btc-advisor</code>. Keep it public.</div></div>
+    <div class="gh-step"><div class="gh-num">2</div><div>Download this HTML file. Rename it to <code>index.html</code>. In your new repo, click <strong>Add file → Upload files</strong> and upload <code>index.html</code>.</div></div>
+    <div class="gh-step"><div class="gh-num">3</div><div>Go to <strong>Settings → Pages</strong>. Under "Branch" select <code>main</code> and click Save. GitHub will give you a URL like <code>https://yourusername.github.io/btc-advisor</code>.</div></div>
+    <div class="gh-step"><div class="gh-num">4</div><div>Open that URL on any device — phone, tablet, computer. Market data loads automatically.</div></div>
+    <div class="gh-step"><div class="gh-num">5</div><div><strong>For cross-device prediction history:</strong> Set up Supabase (free at <a href="https://supabase.com" target="_blank">supabase.com</a>), run the SQL from Settings, then add your Supabase URL + anon key in <strong>⚙ Settings</strong> on each device. History syncs automatically.</div></div>
+    <div class="gh-step"><div class="gh-num">6</div><div>When you get a new build, just re-upload <code>index.html</code> to the same repo. GitHub Pages updates within ~60 seconds.</div></div>
+    <div class="gh-note">Note: Your Anthropic API key and Supabase credentials are stored in each browser's localStorage — you'll need to enter them once per device in Settings. They are never sent anywhere except directly to their respective APIs.</div>
+  </div>
+
+  <!-- ═══ ROW 1: Full-width Interval + Accuracy Panel ═══ -->
+  <div class="interval-panel">
+
+    <!-- Top bar: accuracy label + pills + controls + time remaining -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <div class="sec" style="margin:0">Accuracy</div>
+        <div id="paUpdated" style="font-size:9px;color:var(--text3)"></div>
+        <div id="streakBadge" style="display:none;font-size:11px;font-weight:700;white-space:nowrap"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">
+        <span class="acc-pill ap-3" id="acc3">3m: —</span>
+        <span class="acc-pill ap-6" id="acc6">6m: —</span>
+        <span class="acc-pill ap-10" id="acc10">10m: —</span>
+        <span class="acc-pill ap-all" id="accAll">Overall: —</span>
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button class="xbtn" id="expandBtn" onclick="toggleExpand()" style="font-size:9px;padding:2px 8px">SHOW ALL</button>
+        <button class="xbtn" onclick="exportCSV()" style="font-size:9px;padding:2px 8px">CSV</button>
+        <button class="xbtn" onclick="reResolveAll()" style="font-size:11px;padding:2px 6px" title="Re-resolve">↺</button>
+        <button class="danger-btn" onclick="clearHistory()" style="font-size:9px;padding:2px 8px">CLEAR</button>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--text2);flex-shrink:0" id="tlabel">—</div>
+    </div>
+
+    <!-- Interval chart -->
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-size:10px;color:var(--text3);letter-spacing:.08em">CURRENT INTERVAL — 15 MIN</div>
+        <div class="itv-toggle-group">
+          <button class="itv-toggle active" onclick="setItvMode('price')" id="itvBtnPrice">PRICE</button>
+          <button class="itv-toggle" onclick="setItvMode('confidence')" id="itvBtnConf">CONF</button>
+          <button class="itv-toggle" onclick="setItvMode('both')" id="itvBtnBoth">BOTH</button>
+        </div>
+      </div>
+      <div class="itv-chart-wrap"><canvas id="itvSpark"></canvas><div id="itvDot"></div></div>
+    </div>
+
+    <!-- Sparkline + horizontal history scroll -->
+    <div style="border-top:1px solid var(--border);padding-top:8px">
+      <div class="pa-scroll-outer">
+        <div class="pa-scroll-row" id="paScrollRow">
+          <div id="histEmpty" style="color:var(--text3);font-size:11px;padding:8px">No history yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ROW 2: Model Rec LEFT | Bot+Kalshi stacked RIGHT ═══ -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch">
+
+    <!-- LEFT: Model Recommendation -->
+    <div class="vcard vw" id="vcard" style="box-sizing:border-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:10px;opacity:.5;letter-spacing:.1em">MODEL RECOMMENDATION</div>
+        <div id="vcUpdated" style="font-size:9px;color:var(--text3)"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div class="vtitle" id="vtitle" style="flex:1;min-width:0">—</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <button class="rbtn" onclick="boot()" style="font-size:15px;padding:9px 18px">↺</button>
+          <div class="circ-wrap" title="Time until next signal refresh">
+            <svg width="52" height="52" viewBox="0 0 52 52">
+              <circle class="circ-bg" cx="26" cy="26" r="22"/>
+              <circle class="circ-fg" id="circFg" cx="26" cy="26" r="22" stroke-dasharray="138.2" stroke-dashoffset="0" stroke="var(--blue)"/>
+            </svg>
+            <div class="circ-label"><span id="circSec">—</span><span>sec</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="vsub" id="vsub" style="margin-top:2px">Loading...</div>
+      <div style="margin-top:6px">
+        <div style="font-size:9px;color:var(--text3);letter-spacing:.08em;margin-bottom:4px">SIGNAL STABILITY (last 6)</div>
+        <div class="stability-row" id="stabilityRow">
+          <div class="stab-dot stab-empty"></div>
+          <div class="stab-dot stab-empty"></div>
+          <div class="stab-dot stab-empty"></div>
+          <div class="stab-dot stab-empty"></div>
+          <div class="stab-dot stab-empty"></div>
+          <div class="stab-dot stab-empty"></div>
+        </div>
+      </div>
+      <div style="margin-top:6px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:3px">
+          <span>SIGNAL CONFIDENCE</span><span id="cpct">—</span>
+        </div>
+        <div class="btrack"><div class="bfill" id="cbar" style="width:0%;background:var(--text2)"></div></div>
+      </div>
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+          <span style="color:var(--red)">BEAR <span id="bearP">—</span>%</span>
+          <div id="sbUpdated" style="font-size:9px;color:var(--text3)"></div>
+          <span style="color:var(--green)">BULL <span id="bullP">—</span>%</span>
+        </div>
+        <div style="position:relative">
+          <div style="height:8px;display:flex;border-radius:4px;overflow:hidden;transition:all .6s ease" id="bbbar"></div>
+          <div style="position:absolute;top:-3px;left:40%;width:1px;height:14px;background:var(--text3);opacity:.5"></div>
+          <div style="position:absolute;top:-3px;left:60%;width:1px;height:14px;background:var(--text3);opacity:.5"></div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px" id="modelVsKalshi"></div>
+      <span id="rsiV" style="display:none"></span><span id="volV" style="display:none"></span>
+      <span id="ch4V" style="display:none"></span><span id="velV" style="display:none"></span>
+      <span id="itvV" style="display:none"></span><span id="accelV" style="display:none"></span>
+    </div><!-- /model rec -->
+
+    <!-- RIGHT: Paper Trader + Kalshi side by side -->
+    <div style="display:flex;gap:12px;align-items:stretch;min-width:0">
+
+      <!-- Paper Trader -->
+      <div class="bot-panel" style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="sec" style="margin:0">Paper Trader</div>
+            <span style="font-size:9px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:1px 6px">BOT v1.2</span>
+            <span id="botUpdated" style="font-size:9px;color:var(--text3)"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+            <button class="bot-mode-btn" id="botModeConservative" onclick="setBotMode('conservative')">Conservative</button>
+            <button class="bot-mode-btn active" id="botModeBalanced" onclick="setBotMode('balanced')">Balanced</button>
+            <button class="bot-mode-btn" id="botModeMadmax" onclick="setBotMode('madmax')">Mad Max</button>
+            <button class="xbtn" onclick="resetBot()" style="font-size:9px;padding:2px 8px">RESET</button>
+            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:10px;color:var(--text3)">
+              <input type="checkbox" id="botEnabled" onchange="toggleBot(this.checked)" style="cursor:pointer">LIVE
+            </label>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:11px;align-items:center">
+          <div>Bankroll: <span id="botBankroll" style="font-weight:700;color:var(--green-strong)">$100.00</span></div>
+          <div>P&L: <span id="botPnl" style="font-weight:700;color:var(--text2)">$0.00</span></div>
+          <div>W/L: <span id="botWL" style="font-weight:700">0/0</span></div>
+          <div>Win rate: <span id="botWinRate" style="font-weight:700">—</span></div>
+          <div style="margin-left:auto;font-size:9px;color:var(--text3)">API: <span id="botApiCost">$0.000</span></div>
+        </div>
+        <div id="botStatus" style="font-size:11px;color:var(--text3);background:var(--bg3);border-radius:6px;padding:8px 10px;min-height:60px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.5">Enable bot + ensure <strong>AI: ON</strong> with API key set.</div>
+        <div class="bot-trade-scroll">
+          <div class="bot-trade-row" id="botTradeRow">
+            <span style="font-size:10px;color:var(--text3);padding:4px 0">No trades yet.</span>
+          </div>
+        </div>
+      </div><!-- /bot -->
+
+      <!-- Kalshi side panel — vertical, stretches to match bot height -->
+      <div id="kalshiBar" style="flex-direction:column;align-items:flex-start;gap:8px;width:160px;flex-shrink:0;align-self:stretch">
+        <div class="kpill"><div class="klbl">Status</div><div class="kval"><span id="kStatus" class="kstatus kstatus-open">LOADING</span></div></div>
+        <div class="kpill"><div class="klbl">Strike</div><div class="kval strike" id="kStrike">—</div></div>
+        <div class="kpill"><div class="klbl">Yes bid / ask</div><div class="kval" id="kYesBid">—</div></div>
+        <div class="kpill"><div class="klbl">Implied prob</div><div class="kval" id="kImplied">—</div></div>
+        <div class="kpill"><div class="klbl">Settlement</div><div class="kval" id="kSettle">—</div></div>
+        <div class="kpill"><div class="klbl">Result</div><div class="kval" id="kResult">—</div></div>
+        <div style="display:flex;flex-direction:column;gap:3px;margin-top:2px">
+          <div class="kticker" id="kTicker" style="font-size:8px"></div>
+          <div id="kUpdated" style="font-size:9px;color:var(--text3)">—</div>
+        </div>
+      </div><!-- /kalshi -->
+
+    </div><!-- /right col -->
+  </div><!-- /row 2 -->
+
+  <!-- ═══ ROW 3: Tech Signals LEFT | Price+Macro RIGHT ═══ -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
+
+    <!-- Tech Signals -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+        <div class="sec" style="margin-bottom:0">Technical signals</div>
+        <div id="sigsUpdated" style="font-size:9px;color:var(--text3)"></div>
+      </div>
+      <div id="siglist">—</div>
+    </div>
+
+    <!-- Price chart + Macro -->
+    <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <div class="sec" style="margin-bottom:0">Price — BRTI blend</div>
+        <div id="priceUpdated" style="font-size:9px;color:var(--text3)"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+        <div class="mpill"><div class="lbl">1h change</div><div class="val" id="m1h">—</div></div>
+        <div class="mpill"><div class="lbl">24h high</div><div class="val" id="m24h">—</div></div>
+        <div class="mpill"><div class="lbl">24h low</div><div class="val" id="m24l">—</div></div>
+        <div class="mpill"><div class="lbl">24h volume</div><div class="val" id="mvol">—</div></div>
+        <div class="mpill"><div class="lbl">EMA 9</div><div class="val" id="mema9">—</div></div>
+        <div class="mpill"><div class="lbl">EMA 21</div><div class="val" id="mema21">—</div></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <div class="mstats" style="margin-bottom:0">
+          <div class="mstat">HIGH <span id="shi">—</span></div>
+          <div class="mstat">LOW <span id="slo">—</span></div>
+          <div class="mstat">RANGE <span id="srng">—</span></div>
+        </div>
+        <div class="tf-toggle-group">
+          <button class="tf-toggle" onclick="setTf('15m')" id="tfBtn15m">15m</button>
+          <button class="tf-toggle active" onclick="setTf('1h')" id="tfBtn1h">1h</button>
+          <button class="tf-toggle" onclick="setTf('3h')" id="tfBtn3h">3h</button>
+          <button class="tf-toggle" onclick="setTf('6h')" id="tfBtn6h">6h</button>
+          <button class="tf-toggle" onclick="setTf('12h')" id="tfBtn12h">12h</button>
+          <button class="tf-toggle" onclick="setTf('24h')" id="tfBtn24h">24h</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="spark" role="img" aria-label="BTC price chart"></canvas>
+        <div id="chartDot" style="position:absolute;width:8px;height:8px;border-radius:50%;background:var(--green-strong);border:2px solid var(--bg2);display:none;pointer-events:none"></div>
+        <div id="chartPriceLabel" style="position:absolute;display:none;font-size:9px;font-weight:700;font-family:'SF Mono',monospace;color:var(--text2);white-space:nowrap;pointer-events:none;text-shadow:0 1px 3px var(--bg)"></div>
+      </div>
+      <style>@keyframes dot-pulse{0%,100%{box-shadow:0 0 0 0 rgba(15,168,104,.6)}70%{box-shadow:0 0 0 6px rgba(15,168,104,0)}}.chart-dot-anim{animation:dot-pulse 1.5s ease-out infinite}</style>
+      <div id="macroUpdated" style="font-size:9px;color:var(--text3);text-align:right"></div>
+    </div><!-- /price chart -->
+
+  </div><!-- /row 3 -->
+
+  <!-- hidden wrappers needed by JS -->
+  <div id="histWrap" class="hist-collapsed" style="display:none"><div id="histBody"></div></div>
+  <div id="paTableWrap" style="display:none"></div>
+
+</main>
+
+<div class="statusbar">
+  <div><span class="sdot-live"></span><span id="stL">READY</span></div>
+  <div id="stR">—</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════
+const BUILD='15.5';
+const ITV=15*60*1000;
+const SNAP_MARKS=[3,6,10];
+const KALSHI_BASE='https://api.elections.kalshi.com/trade-api/v2';
+
+// ══════════════════════════════════════════════════════
+// PAPER TRADING BOT — BOT v1.2
+// ══════════════════════════════════════════════════════
+const BOT_VERSION='1.2';
+const BOT_MODES={
+  conservative:{label:'Conservative',maxPct:0.05},
+  balanced:    {label:'Balanced',    maxPct:0.15},
+  madmax:      {label:'Mad Max',     maxPct:0.30}
+};
+
+let bot={
+  enabled:false,
+  mode:'balanced',
+  bankroll:100,
+  startBankroll:100,
+  trades:[],
+  // Per-interval state
+  _iid:null,
+  _bettedIid:null,
+  _callsMade:[],
+  _callLog:[],
+  _thinking:false,
+  _betLock:false,   // sync lock — prevents duplicate bets from concurrent AI completions
+  // Stats
+  apiCalls:0,
+  apiCostEst:0
+};
+
+function loadBot(){
+  try{
+    const s=JSON.parse(localStorage.getItem('paperBot12')||'{}');
+    if(s.trades){
+      bot.bankroll=s.bankroll??100;
+      bot.startBankroll=s.startBankroll??100;
+      bot.trades=s.trades??[];
+      bot.mode=s.mode??'balanced';
+      bot.apiCalls=s.apiCalls??0;
+      bot.apiCostEst=s.apiCostEst??0;
+    }
+  }catch(e){}
+}
+function saveBot(){
+  try{
+    localStorage.setItem('paperBot12',JSON.stringify({
+      bankroll:bot.bankroll,startBankroll:bot.startBankroll,
+      trades:bot.trades,mode:bot.mode,
+      apiCalls:bot.apiCalls,apiCostEst:bot.apiCostEst
+    }));
+  }catch(e){}
+}
+function toggleBot(on){
+  bot.enabled=on;
+  if(!on)bot._thinking=false;
+  renderBot();
+}
+function resetBot(){
+  bot.bankroll=100;bot.startBankroll=100;bot.trades=[];
+  bot.apiCalls=0;bot.apiCostEst=0;
+  bot._iid=null;bot._bettedIid=null;
+  bot._callsMade=[];bot._callLog=[];bot._thinking=false;bot._betLock=false;
+  saveBot();renderBot();
+}
+function setBotMode(m){
+  bot.mode=m;
+  ['conservative','balanced','madmax'].forEach(k=>{
+    const btn=document.getElementById('botMode'+k.charAt(0).toUpperCase()+k.slice(1));
+    if(btn)btn.classList.toggle('active',k===m);
+  });
+  saveBot();
+}
+
+// ── Thinking animation ────────────────────────────────────────────
+function setBotThinking(on,minIn){
+  bot._thinking=on;
+  const statusEl=document.getElementById('botStatus');
+  if(!statusEl)return;
+  if(on){
+    statusEl.innerHTML=`<span class="bot-thinking">
+      <span class="bot-think-dot"></span>
+      <span class="bot-think-dot"></span>
+      <span class="bot-think-dot"></span>
+    </span>
+    <span style="color:var(--text3);font-size:11px"> AI assessing at ${minIn.toFixed(1)}m...</span>`;
+    statusEl.style.color='';
+  }
+}
+
+// ── Execute a bet ────────────────────────────────────────────────
+function executeBotBet(a,verdict,betSizePct,rationale,minIn){
+  // Synchronous lock — prevents duplicate bets from concurrent AI completions
+  if(bot._betLock)return;
+  bot._betLock=true;
+  const iid=currentIid();
+  if(bot._bettedIid===iid){bot._betLock=false;return;} // double-check after acquiring lock
+
+  const mode=BOT_MODES[bot.mode];
+  const impliedProb=a.kalshiImplied;
+  let entryPct;
+  if(verdict==='YES') entryPct=(impliedProb!=null?impliedProb:60)/100;
+  else entryPct=(impliedProb!=null?(100-impliedProb):60)/100;
+  entryPct=Math.max(0.05,Math.min(0.95,entryPct));
+
+  const sizePct=Math.min(betSizePct,mode.maxPct);
+  const betSize=Math.max(0.01,parseFloat((bot.bankroll*sizePct).toFixed(2)));
+
+  bot._bettedIid=iid;
+  bot._callsMade=[6,7,8,9,10]; // block all remaining minute calls for this interval
+
+  // Don't capture strike at bet time — it may be stale from previous interval.
+  // Strike is populated from confirmed entry.kalshiStrike at settlement.
+  const confirmedStrike=null;
+
+  const trade={
+    iid,
+    time:new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+    minIn:parseFloat(minIn.toFixed(1)),
+    verdict,
+    conf:a.conf,
+    impliedProb:a.kalshiImplied,
+    kalshiStrike:confirmedStrike,
+    entryPrice:entryPct,
+    betSize,
+    result:'pending',
+    profit:null,
+    bankrollAfter:null,
+    rationale,
+    aiCallsThisInterval:bot._callsMade.length,
+    callLog:[...bot._callLog]
+  };
+  bot.trades.push(trade);
+  bot._betLock=false; // release lock after trade is recorded
+  saveBot();
+  renderBot();
+}
+
+// ── Main AI call ─────────────────────────────────────────────────
+async function runBotAI(a,minIn){
+  if(!bot.enabled||bot.bankroll<=0)return;
+  const iid=currentIid();
+  if(bot._bettedIid===iid)return; // already bet this interval
+  if(bot._thinking)return;        // call already in flight
+
+  const key=getKey();
+  if(!key||!getAiEnabled())return;
+
+  const minuteMark=Math.floor(minIn);
+  if(bot._callsMade.includes(minuteMark))return; // already called at this minute
+  bot._callsMade.push(minuteMark);
+
+  setBotThinking(true,minIn);
+
+  const mode=BOT_MODES[bot.mode];
+  const isLastChance=minuteMark>=10;
+  const minsLeft=Math.max(0,(10-minIn)).toFixed(1);
+  const stabilityDesc=verdictBuffer.length
+    ? verdictBuffer.map((v,i)=>`${i+1}. ${v.verdict} ${v.conf.toFixed(0)}% (${v.t})`).join(', ')
+    : 'No stability data yet';
+  const prevCallsDesc=bot._callLog.length
+    ? '\n\nYOUR PREVIOUS ASSESSMENTS THIS INTERVAL:\n'+bot._callLog.map(c=>`At ${c.min}m: ${c.response}`).join('\n')
+    : '';
+
+  // Urgency framing scales with time
+  const urgency=minIn>=10
+    ? `FINAL CHANCE: Last call this interval. Unless signals are actively contradictory, BET. Sitting out costs nothing but a missed opportunity.`
+    : minIn>=9
+    ? `9 minutes in. Strong signal = BET now. Only skip if stability is low or Kalshi contradicts model.`
+    : minIn>=8
+    ? `8 minutes in. Clear signal = BET. Mixed signal = wait one more check.`
+    : minIn>=7
+    ? `7 minutes in. BET if: confidence ≥75% AND stability ≥0.75 AND Kalshi roughly agrees. Otherwise wait.`
+    : `6 minutes in. Opening assessment. BET only if signal is exceptional: confidence ≥85%, stability ≥0.85, Kalshi agrees, 4+ streak. Otherwise SKIP and reassess at 7m.`;
+
+  // Signal quality tier for AI to reason about
+  const conf=a.conf;
+  const stab=a.stabilityFactor||1;
+  const streak=a.stabilityStreak||0;
+  const kalshiAgrees=a.kalshiImplied!=null&&(
+    (a.verdict==='YES'&&a.kalshiImplied>55)||
+    (a.verdict==='NO'&&a.kalshiImplied<45)
+  );
+  const tier=
+    (conf>=85&&stab>=0.85&&streak>=4&&kalshiAgrees)?'TIER 1 — Exceptional: bet strongly':
+    (conf>=75&&stab>=0.75&&streak>=3)?'TIER 2 — Strong: bet at normal size':
+    (conf>=65&&stab>=0.65&&streak>=2)?'TIER 3 — Moderate: bet small if time is running out':
+    'TIER 4 — Weak: skip unless at 10m with no better option';
+
+  const prompt=`You are a paper trading bot for Kalshi BTC 15-minute binary prediction markets. You are deciding whether to place a bet for this interval.
+
+CURRENT TIME: ${minIn.toFixed(1)} minutes into interval (${minsLeft} minutes left in 6-10m window)
+MODE: ${mode.label} (max bet: ${(mode.maxPct*100).toFixed(0)}% of bankroll)
+BANKROLL: $${bot.bankroll.toFixed(2)}
+
+MODEL OUTPUT:
+- Verdict: ${a.verdict} at ${a.conf.toFixed(0)}% confidence
+- Signal balance: BULL ${a.bulls?.toFixed(0)||'?'}% / BEAR ${a.bears?.toFixed(0)||'?'}%
+- Signal stability factor: ${a.stabilityFactor?.toFixed(2)||'?'} (1.0=stable, lower=noisy/flipping)
+- Consecutive streak: ${a.stabilityStreak||0} same-direction readings
+- Kalshi implied: ${a.kalshiImplied!=null?a.kalshiImplied.toFixed(1)+'% YES':'no data'}
+- Model vs Kalshi divergence: ${a.kalshiDivergence!=null?a.kalshiDivergence.diff?.toFixed(1)+'pp':'N/A'}
+- Interval move: ${a.itvMove>=0?'+':''}${parseFloat(a.itvMove).toFixed(3)}%
+- Velocity (3m): ${a.vel3>=0?'+':''}${parseFloat(a.vel3).toFixed(4)}%/m
+- RSI: ${a.rsi?.toFixed(1)||'?'}
+
+SIGNAL STABILITY (last 6 model reads, oldest→newest):
+${stabilityDesc}
+
+KEY PRINCIPLE: Later = more accurate. Threshold drops each minute.
+SIGNAL QUALITY: ${tier}
+${urgency}${prevCallsDesc}
+
+DECISION RULE: If signal tier is 1 or 2, you should almost always BET. Only SKIP tier 1/2 if you see a specific red flag. Tier 3: bet if time is 8m+. Tier 4: only bet at 10m as last resort.
+
+Respond in this exact JSON format only, no other text:
+{"action":"BET","verdict":"YES","sizePct":0.10,"rationale":"one sentence explaining why"}
+or
+{"action":"SKIP","rationale":"one sentence explaining why not yet"}
+
+sizePct must be between 0.01 and ${mode.maxPct}. verdict must be YES or NO.`;
+
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'anthropic-version':'2023-06-01',
+        'x-api-key':key,
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:200,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+
+    bot.apiCalls++;
+    // Estimate cost: haiku input ~$0.00025/1k tokens, output ~$0.00125/1k
+    bot.apiCostEst+=parseFloat(((prompt.length/4*0.00025/1000)+(200*0.00125/1000)).toFixed(4));
+
+    if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'HTTP '+r.status);}
+    const data=await r.json();
+    const text=data.content[0]?.text||'';
+
+    // Parse JSON response
+    let parsed;
+    try{
+      const match=text.match(/\{[\s\S]*\}/);
+      parsed=JSON.parse(match?.[0]||text);
+    }catch{
+      parsed={action:'SKIP',rationale:'Could not parse AI response: '+text.slice(0,80)};
+    }
+
+    // Log this call for carry-forward context
+    bot._callLog.push({
+      min:minIn.toFixed(1),
+      response:parsed.action==='BET'
+        ? `BET ${parsed.verdict} ${((parsed.sizePct||0.1)*100).toFixed(0)}% — ${parsed.rationale}`
+        : `SKIP — ${parsed.rationale}`
+    });
+
+    bot._thinking=false;
+
+    if(parsed.action==='BET'&&(parsed.verdict==='YES'||parsed.verdict==='NO')){
+      executeBotBet(a,parsed.verdict,parsed.sizePct||mode.maxPct/2,parsed.rationale,minIn);
+    } else {
+      // SKIP — update status with rationale
+      const statusEl=document.getElementById('botStatus');
+      if(statusEl){
+        statusEl.innerHTML=`⏭ <strong>${minIn.toFixed(1)}m</strong> — Skipping: ${parsed.rationale}`;
+        statusEl.style.color='var(--text3)';
+      }
+      saveBot();
+      renderBot();
+    }
+  }catch(e){
+    bot._thinking=false;
+    const statusEl=document.getElementById('botStatus');
+    if(statusEl){statusEl.textContent='AI error: '+e.message.slice(0,60);statusEl.style.color='var(--red-strong)';}
+    renderBot();
+  }
+}
+
+// ── Hook called from renderSignals every 15s ──────────────────────
+function checkPaperTrade(a){
+  if(!bot.enabled||bot.bankroll<=0||bot._thinking)return;
+  const iid=currentIid();
+
+  // Reset per-interval state on new interval
+  if(iid!==bot._iid){
+    bot._iid=iid;
+    bot._callsMade=[];
+    bot._callLog=[];
+  }
+
+  if(bot._bettedIid===iid)return; // already bet this interval
+
+  const minIn=a.minIn;
+  const minuteMark=Math.floor(minIn);
+
+  // Fire at minutes 6, 7, 8, 9, 10
+  if(minuteMark>=6&&minuteMark<=10&&!bot._callsMade.includes(minuteMark)){
+    runBotAI(a,minIn);
+  }
+}
+
+// Grace period: wait at least 90s after interval end before settling
+// This allows Kalshi's result + BRTI expiration_value to stabilize
+const SETTLE_GRACE_MS=30*1000;
+
+function settleBotTrades(){
+  let changed=false;
+  const now=Date.now();
+  for(const trade of bot.trades){
+    const itvEnd=(trade.iid+1)*ITV;
+    const msSinceEnd=now-itvEnd;
+
+    // Interval hasn't ended yet
+    if(msSinceEnd<0)continue;
+
+    // Within grace period — mark awaiting
+    if(msSinceEnd<SETTLE_GRACE_MS){
+      if(trade.result!=='awaiting'){trade.result='awaiting';changed=true;}
+      continue;
+    }
+
+    // Past grace — need resolved entry with BRTI settle
+    const entry=history.find(h=>h.intervalId===trade.iid);
+    if(!entry||!entry.kalshiResolved||!entry.brtiSettle){
+      if(trade.result!=='awaiting'){trade.result='awaiting';changed=true;}
+      continue;
+    }
+
+    const won=(trade.verdict==='YES'&&entry.kalshiResult==='yes')||
+              (trade.verdict==='NO'&&entry.kalshiResult==='no');
+    const newResult=won?'correct':'wrong';
+
+    // settleKey only uses result + brtiSettle
+    // Strike is NEVER part of settleKey — it is immutable, set once by backfill
+    const settleKey=`${entry.kalshiResult}|${entry.brtiSettle}`;
+    if(trade.result===newResult&&trade._settleKey===settleKey)continue;
+
+    const wasAlreadySettled=trade._settleKey!=null;
+    const tradeProfit=won
+      ? parseFloat((trade.betSize*(1-trade.entryPrice)/trade.entryPrice).toFixed(2))
+      : -trade.betSize;
+
+    if(wasAlreadySettled){
+      const oldProfit=trade.profit||0;
+      bot.bankroll=Math.max(0,parseFloat((bot.bankroll-oldProfit+tradeProfit).toFixed(2)));
+    } else {
+      bot.bankroll=Math.max(0,parseFloat((bot.bankroll+tradeProfit).toFixed(2)));
+    }
+
+    trade.result=newResult;
+    trade.profit=tradeProfit;
+    trade.bankrollAfter=bot.bankroll;
+    trade._settleKey=settleKey;
+    // NEVER touch trade.kalshiStrike here — immutable once backfilled
+
+    if(bot.bankroll<=0){
+      bot.enabled=false;
+      const cb=document.getElementById('botEnabled');
+      if(cb)cb.checked=false;
+    }
+    changed=true;
+  }
+  if(changed){saveBot();renderBot();}
+}
+
+function renderBot(){
+  // Bankroll + P&L
+  const pnl=bot.bankroll-bot.startBankroll;
+  const brEl=document.getElementById('botBankroll');
+  const pnlEl=document.getElementById('botPnl');
+  if(brEl){brEl.textContent='$'+bot.bankroll.toFixed(2);brEl.style.color=bot.bankroll>=bot.startBankroll?'var(--green-strong)':'var(--red-strong)';}
+  if(pnlEl){pnlEl.textContent=(pnl>=0?'+':'')+'$'+pnl.toFixed(2);pnlEl.style.color=pnl>=0?'var(--green-strong)':'var(--red-strong)';}
+
+  // W/L
+  const settled=bot.trades.filter(t=>t.result==='correct'||t.result==='wrong');
+  const wins=settled.filter(t=>t.result==='correct').length;
+  const losses=settled.length-wins;
+  const wlEl=document.getElementById('botWL');const wrEl=document.getElementById('botWinRate');
+  if(wlEl)wlEl.textContent=wins+'/'+losses;
+  if(wrEl)wrEl.textContent=settled.length?Math.round(wins/settled.length*100)+'%':'—';
+
+  // API cost + call count
+  const apiEl=document.getElementById('botApiCost');
+  if(apiEl)apiEl.textContent=`$${bot.apiCostEst.toFixed(4)} (${bot.apiCalls} calls)`;
+
+  // Status — only update if not thinking (thinking animation set separately)
+  if(!bot._thinking){
+    const statusEl=document.getElementById('botStatus');
+    if(statusEl){
+      if(!bot.enabled){
+        statusEl.innerHTML='Enable bot + ensure <strong>AI: ON</strong> with API key set.';
+        statusEl.style.color='var(--text3)';
+      } else if(bot.bankroll<=0){
+        statusEl.textContent='💀 Bankroll depleted. Reset to restart.';
+        statusEl.style.color='var(--red-strong)';
+      } else {
+        const pending=bot.trades.find(t=>t.result==='pending'||t.result==='awaiting');
+        if(pending){
+          const strikeStr=pending.kalshiStrike?` · Strike $${pending.kalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`:'';
+          const awaiting=pending.result==='awaiting';
+          statusEl.innerHTML=
+            (awaiting
+              ? `<span class="bot-thinking"><span class="bot-think-dot"></span><span class="bot-think-dot"></span><span class="bot-think-dot"></span></span> <span style="color:var(--text3)">Market resolution pending...</span>`
+              : `⏳ <strong>${pending.verdict}</strong> bet placed at ${pending.minIn}m · ${pending.time}`)+
+            `${strikeStr} · $${pending.betSize?.toFixed(2)} @ ${((pending.entryPrice||0)*100).toFixed(0)}¢`+
+            `<br><span style="font-size:10px;color:var(--text3)">${pending.rationale}</span>`+
+            `<br><span style="font-size:9px;color:var(--text3)">Conf: ${pending.conf?.toFixed(0)}% · Kalshi: ${pending.impliedProb!=null?pending.impliedProb.toFixed(0)+'%':'N/A'} · ${pending.aiCallsThisInterval||0} AI call(s)</span>`;
+          statusEl.style.color=awaiting?'var(--text3)':'var(--amber)';
+        } else {
+          const last=bot.trades.filter(t=>t.result!=='pending').at(-1);
+          if(last){
+            const col=last.result==='correct'?'var(--green-strong)':'var(--red-strong)';
+            const emoji=last.result==='correct'?'✓':'✗';
+            statusEl.innerHTML=
+              `${emoji} <strong>${last.verdict}</strong> ${last.result}`+
+              ` · ${(last.profit>=0?'+':'')+'$'+last.profit?.toFixed(2)}`+
+              ` · Bankroll $${last.bankrollAfter?.toFixed(2)}`+
+              `<br><span style="font-size:10px;color:var(--text3)">${last.rationale}</span>`;
+            statusEl.style.color=col;
+          } else {
+            const iid=currentIid();
+            const callsMade=bot._callsMade?.length||0;
+            statusEl.textContent=callsMade>0
+              ? `Watching... ${callsMade} AI check(s) done this interval`
+              : 'Watching for 6m window...';
+            statusEl.style.color='var(--text3)';
+          }
+        }
+      }
+    }
+  }
+
+  // Trade pills
+  const row=document.getElementById('botTradeRow');
+  if(row){
+    const toShow=bot.trades.slice(-40);
+    if(!toShow.length){
+      row.innerHTML='<span style="font-size:10px;color:var(--text3);padding:4px 0">No trades yet.</span>';
+    } else {
+      row.innerHTML=toShow.map(t=>{
+        const cls=t.result==='correct'?'bot-correct':t.result==='wrong'?'bot-wrong':t.result==='pending'||t.result==='awaiting'?'bot-pending':'bot-skip';
+        const pnlStr=t.result==='awaiting'?'…':t.profit!=null?(t.profit>=0?'+':'')+'$'+t.profit.toFixed(2):'…';
+        const strikeStr=t.kalshiStrike?'$'+t.kalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+        const timeStr=(t.time||'').replace(/\s*(AM|PM)/i,m=>m.trim());
+        // Get settlement price from history
+        const entry=history.find(h=>h.intervalId===t.iid);
+        const settleStr=entry?.brtiSettle?entry.brtiSettle.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+        const prevLog=t.callLog?.map(c=>`${c.min}m: ${c.response}`).join(' | ')||'';
+        const tip=`${t.verdict} @ ${t.minIn}m · ${timeStr} | Strike: ${strikeStr} | Settle: ${settleStr} | Conf: ${t.conf?.toFixed(0)}% | Kalshi: ${t.impliedProb!=null?t.impliedProb.toFixed(0)+'%':'N/A'} | Bet: $${t.betSize?.toFixed(2)} @ ${((t.entryPrice||0)*100).toFixed(0)}¢ | ${t.rationale}${prevLog?' || Prior: '+prevLog:''}`;
+        return `<span class="bot-trade-pill ${cls}" title="${tip}" style="flex-direction:column;align-items:flex-start;height:auto;padding:4px 8px;line-height:1.4">
+          <span style="font-weight:700">${t.verdict} ${pnlStr}</span>
+          <span style="font-size:8px;opacity:.85">${settleStr}</span>
+          <span style="font-size:8px;opacity:.7">${timeStr} · <span style="color:var(--amber)">${strikeStr}</span></span>
+        </span>`;
+      }).join('');
+    }
+    const outer=row.parentElement;
+    if(outer)outer.scrollLeft=0;
+  }
+
+  const el=document.getElementById('botUpdated');
+  if(el)el.textContent='updated '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+
+// ── Interval chart state ─────────────────────────────────────────
+let itvChartMode='price'; // 'price' | 'confidence' | 'both'
+let itvPriceBuffer=[];    // {t, price} — price readings within current interval
+let itvConfBuffer=[];     // {t, conf, verdict} — confidence readings within current interval
+let itvChart=null;
+let _lastItvIid=null;
+
+function setItvMode(mode){
+  itvChartMode=mode;
+  ['price','confidence','both'].forEach(m=>{
+    const btn=document.getElementById('itvBtn'+m.charAt(0).toUpperCase()+m.slice(1));
+    if(btn)btn.classList.toggle('active',m===mode);
+  });
+  // fix button IDs
+  document.getElementById('itvBtnPrice')?.classList.toggle('active',mode==='price');
+  document.getElementById('itvBtnConf')?.classList.toggle('active',mode==='confidence');
+  document.getElementById('itvBtnBoth')?.classList.toggle('active',mode==='both');
+  drawItvChart();
+}
+
+function pushItvData(price,conf,verdict,closes){
+  const now=Date.now();
+  const iid=Math.floor(now/ITV);
+  // Clear buffer on new interval
+  if(iid!==_lastItvIid){
+    itvPriceBuffer=[];
+    itvConfBuffer=[];
+    _lastItvIid=iid;
+  }
+  // If buffer is empty, seed it from the closes array (historical candles this interval)
+  if(itvPriceBuffer.length===0&&closes&&closes.length){
+    const itvStartMs=iid*ITV;
+    const nowMs=Date.now();
+    const minIn=(nowMs-itvStartMs)/60000;
+    const candlesIn=Math.min(Math.floor(minIn),14);
+    const startIdx=Math.max(0,closes.length-1-candlesIn);
+    for(let i=startIdx;i<closes.length-1;i++){
+      const elapsed=(i-(startIdx))*((minIn)/Math.max(1,closes.length-1-startIdx));
+      itvPriceBuffer.push({t:Math.min(elapsed,14.9),price:closes[i]});
+    }
+  }
+  const elapsed=(now%ITV)/60000;
+  itvPriceBuffer.push({t:elapsed,price});
+  itvConfBuffer.push({t:elapsed,conf,verdict});
+  drawItvChart();
+}
+
+function drawItvChart(){
+  const cv=document.getElementById('itvSpark');
+  if(!cv)return;
+  const strike=lastKalshiStrike;
+
+  const datasets=[];
+
+  if(itvChartMode==='price'||itvChartMode==='both'){
+    if(itvPriceBuffer.length>1){
+      const last=itvPriceBuffer.at(-1).price;
+      const isUp=last>=(strike||itvPriceBuffer[0].price);
+      datasets.push({
+        label:'Price',
+        data:itvPriceBuffer.map(d=>({x:d.t,y:d.price})),
+        borderColor:isUp?'#1DB87A':'#E05252',
+        backgroundColor:isUp?'rgba(29,184,122,0.08)':'rgba(224,82,82,0.08)',
+        borderWidth:2,pointRadius:0,fill:true,tension:.3,
+        yAxisID:'yPrice'
+      });
+    }
+  }
+  if(itvChartMode==='confidence'||itvChartMode==='both'){
+    if(itvConfBuffer.length>1){
+      datasets.push({
+        label:'Confidence',
+        data:itvConfBuffer.map(d=>({x:d.t,y:d.conf})),
+        borderColor:'rgba(155,110,240,0.8)',
+        backgroundColor:'rgba(155,110,240,0.05)',
+        borderWidth:1.5,pointRadius:0,fill:false,tension:.3,
+        borderDash:[3,2],
+        yAxisID:'yConf'
+      });
+    }
+  }
+
+  if(!datasets.length)return;
+
+  const itvOverlayPlugin={
+    id:'itvOverlay',
+    afterDraw(ch){
+      const{ctx,chartArea:{left,right,top,bottom},scales}=ch;
+      if(!scales.x)return;
+      const x=scales.x;
+
+      // X-axis baseline
+      ctx.save();
+      ctx.beginPath();
+      ctx.strokeStyle='rgba(255,255,255,0.08)';
+      ctx.lineWidth=1;
+      ctx.moveTo(left,bottom);ctx.lineTo(right,bottom);ctx.stroke();
+      ctx.restore();
+
+      // 3m/6m/10m marker lines
+      const colMap={'3':'#E8A030','6':'#9B6EF0','10':'#4A8EF0'};
+      [[3,'3'],[6,'6'],[10,'10']].forEach(([min,key])=>{
+        const px=x.getPixelForValue(min);
+        if(px<left||px>right)return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([3,3]);
+        ctx.strokeStyle=colMap[key];
+        ctx.lineWidth=1;
+        ctx.moveTo(px,top);ctx.lineTo(px,bottom);ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font='bold 8px SF Mono,monospace';
+        ctx.fillStyle=colMap[key];
+        ctx.textAlign='center';
+        ctx.fillText(min+'m',px,top-2);
+        ctx.restore();
+      });
+
+      // Strike line
+      if(strike&&scales.yPrice){
+        const yPx=scales.yPrice.getPixelForValue(strike);
+        if(yPx>=top&&yPx<=bottom){
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([4,3]);
+          ctx.strokeStyle='rgba(232,160,48,0.5)';
+          ctx.lineWidth=1;
+          ctx.moveTo(left,yPx);ctx.lineTo(right,yPx);ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.font='bold 9px SF Mono,monospace';
+          ctx.fillStyle='rgba(232,160,48,0.7)';
+          ctx.textAlign='right';
+          ctx.fillText('$'+Math.round(strike).toLocaleString(),right-2,yPx-3);
+          ctx.restore();
+        }
+      }
+
+      // Position DOM pulse dot at current tip
+      if(itvPriceBuffer.length>1&&scales.yPrice){
+        const last=itvPriceBuffer.at(-1);
+        const xPx=x.getPixelForValue(last.t);
+        const yPx=scales.yPrice.getPixelForValue(last.price);
+        const isUp=last.price>=(strike||itvPriceBuffer[0].price);
+        const dot=document.getElementById('itvDot');
+        if(dot&&xPx>=left&&xPx<=right&&yPx>=top&&yPx<=bottom){
+          dot.style.display='block';
+          dot.style.left=(xPx-4)+'px';
+          dot.style.top=(yPx-4)+'px';
+          dot.className=isUp?'itv-dot-up':'itv-dot-dn';
+        }
+      }
+    }
+  };
+
+  if(itvChart)itvChart.destroy();
+  itvChart=new Chart(cv,{
+    type:'line',
+    data:{datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      layout:{padding:{left:0,right:0,top:14,bottom:0}},
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{
+        x:{type:'linear',min:0,max:15,display:true,offset:false,
+          ticks:{stepSize:1,color:'rgba(120,120,160,0.5)',font:{size:8},callback:v=>v===0?'0m':v===15?'15m':null},
+          grid:{color:'rgba(255,255,255,0.04)'},border:{display:false}
+        },
+        yPrice:{display:false,position:'left'},
+        yConf:{display:false,position:'right',min:0,max:100}
+      }
+    },
+    plugins:[itvOverlayPlugin]
+  });
+}
+
+// ── Verdict stability buffer ─────────────────────────────────────
+let verdictBuffer=[]; // [{verdict, conf, t}] — last 6
+
+let _stabilityIid=null;
+function pushVerdictStability(verdict,conf){
+  const iid=Math.floor(Date.now()/ITV);
+  // Reset buffer on new interval
+  if(iid!==_stabilityIid){
+    verdictBuffer=[];
+    _stabilityIid=iid;
+  }
+  const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  verdictBuffer.push({verdict,conf,t});
+  if(verdictBuffer.length>6)verdictBuffer.shift();
+  renderStabilityDots();
+}
+
+function renderStabilityDots(){
+  const row=document.getElementById('stabilityRow');
+  if(!row)return;
+  const dots=row.querySelectorAll('.stab-dot');
+  // Show oldest on left, newest on right — pad with empty
+  const padded=Array(6).fill(null);
+  verdictBuffer.forEach((v,i)=>padded[6-verdictBuffer.length+i]=v);
+  dots.forEach((dot,i)=>{
+    const v=padded[i];
+    dot.className='stab-dot';
+    if(!v){dot.classList.add('stab-empty');dot.title='—';return;}
+    if(v.verdict==='YES')dot.classList.add('stab-yes');
+    else if(v.verdict==='NO')dot.classList.add('stab-no');
+    else dot.classList.add('stab-wait');
+    dot.title=`${v.verdict} @ ${v.conf.toFixed(0)}% — ${v.t}`;
+  });
+}
+
+// ── Price chart timeframe ─────────────────────────────────────────
+let chartTf='1h';
+let allClosesData=[]; // full data from fetchData — store for TF slicing
+
+function setTf(tf){
+  chartTf=tf;
+  document.querySelectorAll('.tf-toggle').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('tfBtn'+tf.replace('h','h').replace('m','m'));
+  if(btn)btn.classList.add('active');
+  if(window._lastA)redrawChart(window._lastA);
+}
+
+
+
+// ── AI ENABLED TOGGLE — defined first so button onclick works ──
+const getAiEnabled=()=>localStorage.getItem('ai_enabled')!=='false';
+function setAiEnabled(v){localStorage.setItem('ai_enabled',v?'true':'false');updateAiToggle();}
+function updateAiToggle(){
+  const btn=document.getElementById('aiToggleBtn');
+  if(!btn)return;
+  const on=getAiEnabled();
+  const onOff=document.getElementById('aiOnOff');
+  if(onOff)onOff.textContent=on?'ON':'OFF';
+  btn.style.color=on?'var(--green-strong)':'var(--text3)';
+  btn.style.borderColor=on?'var(--green-strong-b)':'var(--border)';
+}
+
+// ══════════════════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════════════════
+function toggleTheme(){
+  const h=document.documentElement,dark=h.getAttribute('data-theme')==='dark';
+  h.setAttribute('data-theme',dark?'light':'dark');
+  document.getElementById('themeBtn').textContent=dark?'🌙':'☀';
+  localStorage.setItem('btc_theme',dark?'light':'dark');
+  if(window._lastA)redrawChart(window._lastA);
+}
+(function(){
+  const s=localStorage.getItem('btc_theme')||'dark';
+  document.documentElement.setAttribute('data-theme',s);
+  document.getElementById('themeBtn').textContent=s==='dark'?'☀':'🌙';
+})();
+
+// ══════════════════════════════════════════════════════
+// GITHUB TOGGLE
+// ══════════════════════════════════════════════════════
+function toggleGH(){
+  const b=document.getElementById('ghBox');
+  const btn=document.querySelector('.hbtn:nth-of-type(2)');
+  const shown=b.style.display==='block';
+  b.style.display=shown?'none':'block';
+  btn.textContent=shown?'GITHUB ▲':'GITHUB ▼';
+}
+
+// ══════════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════════
+const getKey=()=>localStorage.getItem('anthropic_key')||'';
+const getSbUrl=()=>localStorage.getItem('sb_url')||'';
+const getSbKey=()=>localStorage.getItem('sb_key')||'';
+function openSettings(){
+  document.getElementById('keyInput').value=getKey();
+  document.getElementById('sbUrl').value=getSbUrl();
+  document.getElementById('sbKey').value=getSbKey();
+  document.getElementById('cfWorkerInput').value=getCfWorker();
+  document.getElementById('settingsModal').classList.remove('hidden');
+}
+function closeSettings(){document.getElementById('settingsModal').classList.add('hidden');}
+function saveSettings(){
+  const k=document.getElementById('keyInput').value.trim();
+  const su=document.getElementById('sbUrl').value.trim();
+  const sk=document.getElementById('sbKey').value.trim();
+  k?localStorage.setItem('anthropic_key',k):localStorage.removeItem('anthropic_key');
+  su?localStorage.setItem('sb_url',su):localStorage.removeItem('sb_url');
+  sk?localStorage.setItem('sb_key',sk):localStorage.removeItem('sb_key');
+  const cfw=document.getElementById('cfWorkerInput').value.trim();
+  cfw?localStorage.setItem(CF_WORKER_KEY,cfw):localStorage.removeItem(CF_WORKER_KEY);
+  closeSettings();updateDbBadge();updateAiToggle();
+}
+function updateDbBadge(){
+  const el=document.getElementById('dbBadge');
+  if(getSbUrl()&&getSbKey()){el.textContent='DB: ON';el.className='db-badge db-on';}
+  else{el.textContent='DB: OFF';el.className='db-badge db-off';}
+}
+document.getElementById('settingsModal').addEventListener('click',e=>{if(e.target===document.getElementById('settingsModal'))closeSettings();});
+updateDbBadge();
+updateAiToggle();
+
+// ══════════════════════════════════════════════════════
+// SUPABASE
+// ══════════════════════════════════════════════════════
+async function sbFetch(path,method='GET',body=null){
+  const url=getSbUrl(),key=getSbKey();if(!url||!key)return null;
+  const opts={method,headers:{'Content-Type':'application/json','apikey':key,'Authorization':'Bearer '+key,'Prefer':'resolution=merge-duplicates'}};
+  if(body)opts.body=JSON.stringify(body);
+  try{const r=await fetch(url+'/rest/v1/'+path,opts);return method==='GET'?await r.json():true;}catch{return null;}
+}
+async function sbUpsert(entry){
+  if(!getSbUrl())return;
+  await sbFetch('predictions','POST',{interval_id:entry.intervalId,data:entry,updated_at:new Date().toISOString()});
+}
+async function sbLoad(){
+  if(!getSbUrl())return null;
+  const rows=await sbFetch('predictions?order=interval_id.desc&limit=100');
+  return rows?rows.map(r=>r.data).filter(Boolean):null;
+}
+
+// ══════════════════════════════════════════════════════
+// KALSHI API
+// ══════════════════════════════════════════════════════
+// Cache current ticker
+let _currentKalshiTicker=null;
+let _currentKalshiIid=null;
+let _previousKalshiTicker=null;
+
+// Build ticker from timestamp — confirmed format: YYmonDDHHMM
+// e.g. kxbtc15m-26apr271700 = year 2026, april, day 27, time 17:00 UTC
+function buildKalshiTicker(ts){
+  // Kalshi appears to use Eastern time in tickers, not UTC
+  // EDT = UTC-4, EST = UTC-5. Use UTC-4 (EDT) as Kalshi operates in Eastern time.
+  const edtOffset=4*60*60*1000;
+  const d=new Date(ts-edtOffset); // shift to EDT
+  const yy=String(d.getUTCFullYear()).slice(2);
+  const mon=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getUTCMonth()];
+  const dd=String(d.getUTCDate()).padStart(2,'0');
+  const hh=String(d.getUTCHours()).padStart(2,'0');
+  const mm=String(d.getUTCMinutes()).padStart(2,'0');
+  const baseEdt=`KXBTC15M-${yy}${mon}${dd}${hh}${mm}`;
+  // Also try pure UTC as fallback
+  const du=new Date(ts);
+  const baseUtc=`KXBTC15M-${String(du.getUTCFullYear()).slice(2)}${['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][du.getUTCMonth()]}${String(du.getUTCDate()).padStart(2,'0')}${String(du.getUTCHours()).padStart(2,'0')}${String(du.getUTCMinutes()).padStart(2,'0')}`;
+  // Return all variants to try: EDT with -15, EDT without, UTC with -15, UTC without
+  return [...new Set([baseEdt+'-15', baseEdt, baseUtc+'-15', baseUtc])];
+}
+
+const CF_WORKER_KEY='kalshi_cf_worker';
+function getCfWorker(){return localStorage.getItem(CF_WORKER_KEY)||'';}
+
+async function kalshiDirectFetch(url){
+  const cfWorker=getCfWorker();
+  if(cfWorker){
+    try{
+      const r=await fetch(`${cfWorker}?url=${encodeURIComponent(url)}`,{
+        signal:AbortSignal.timeout(6000)
+      });
+      if(r.ok){
+        const text=await r.text();
+        if(text&&!text.startsWith('<')){
+          const data=JSON.parse(text);
+          // Reject Kalshi error responses
+          if(data.error||data.error_type)return null;
+          return data;
+        }
+      }
+    }catch(e){console.warn('Worker error:',e.message);}
+  }
+
+  // Public CORS proxies — tried in sequence
+  const proxies=[
+    url=>url,
+    url=>`https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+    url=>`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    url=>`https://thingproxy.freeboard.io/fetch/${url}`,
+    url=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  ];
+
+  for(const proxyFn of proxies){
+    try{
+      const proxied=proxyFn(url);
+      const r=await fetch(proxied,{
+        headers:{'Accept':'application/json','User-Agent':'Mozilla/5.0'},
+        signal:AbortSignal.timeout(5000)
+      });
+      if(!r.ok)continue;
+      const text=await r.text();
+      if(!text||text.startsWith('<')||text.startsWith('<!'))continue;
+      const data=JSON.parse(text);
+      if(data.contents)return JSON.parse(data.contents);
+      if(data.error||data.error_type)continue;
+      return data;
+    }catch{continue;}
+  }
+  return null;
+}
+
+async function getCurrentKalshiMarket(){
+  const iid=currentIid();
+  const itvStart=iid*ITV;
+
+  // Try cached ticker — but only if it returned an OPEN market last time
+  // If it's now settled, we need to fetch the NEW open market
+  if(_currentKalshiTicker&&_currentKalshiIid===iid){
+    const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${_currentKalshiTicker}`);
+    if(d?.market){
+      const mkt=d.market;
+      const LIVE_STATUSES=['open','active','initialized'];
+      const isLive=LIVE_STATUSES.includes(mkt.status);
+      const yesBid=parseFloat(mkt.yes_bid_dollars||0);
+      const noBid=parseFloat(mkt.no_bid_dollars||0);
+      const looksSettled=yesBid>=0.99||noBid>=0.99;
+      if(isLive&&!looksSettled)return mkt;
+    }
+    // Null, error, or settled — always bust cache
+    _currentKalshiTicker=null;
+    _currentKalshiIid=null;
+  }
+
+  // New interval or cache busted — try constructed tickers
+  const closeTs=itvStart+ITV;
+  const openTs=itvStart;
+  for(const ts of [closeTs, openTs]){
+    for(const ticker of buildKalshiTicker(ts)){
+      const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${ticker}`);
+      if(d?.market&&['open','active','initialized'].includes(d.market.status)&&parseFloat(d.market.yes_bid_dollars||0)<0.99&&parseFloat(d.market.no_bid_dollars||0)<0.99){
+        _previousKalshiTicker=_currentKalshiTicker;
+        _currentKalshiTicker=d.market.ticker||ticker;
+        _currentKalshiIid=iid;
+        return d.market;
+      }
+    }
+  }
+
+  // Last resort: query series list (requires Worker to bypass 403)
+  const list=await kalshiDirectFetch(`${KALSHI_BASE}/markets?series_ticker=KXBTC15M&status=open&limit=3`);
+  if(list?.markets){
+    const mkt=list.markets[0];
+    if(mkt&&['open','active','initialized'].includes(mkt.status)){
+      _previousKalshiTicker=_currentKalshiTicker;
+      _currentKalshiTicker=mkt.ticker;
+      _currentKalshiIid=iid;
+      return mkt;
+    }
+  }
+
+  return null;
+}
+
+async function getRecentKalshiMarket(iid){
+  const itvEnd=(iid+1)*ITV;
+  const itvStart=iid*ITV;
+  // Try both close time and open time variants
+  for(const ts of [itvEnd, itvStart]){
+    for(const ticker of buildKalshiTicker(ts)){
+      const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${ticker}`);
+      if(d?.market)return d.market;
+    }
+  }
+  return null;
+}
+
+async function fetchKalshiMarket(ticker){
+  const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${ticker}`);
+  return d?.market||null;
+}
+
+async function kalshiTickerForIid(iid){
+  if(iid===_currentKalshiIid)return _currentKalshiTicker;
+  const entry=history.find(h=>h.intervalId===iid);
+  if(entry?.kalshiTicker)return entry.kalshiTicker;
+  return null;
+}
+
+// Resolve pending entries using Kalshi settled series list
+async function resolveFromKalshi(entry){
+  if(entry.kalshiResolved)return entry;
+  let mkt=null;
+
+  // PRIMARY: settled series list matched by close_time — most reliable
+  const list=await kalshiDirectFetch(`${KALSHI_BASE}/markets?series_ticker=KXBTC15M&status=settled&limit=50`);
+  if(list?.markets){
+    const itvStart=entry.intervalId*ITV;
+    const itvEnd=(entry.intervalId+1)*ITV;
+    mkt=list.markets.find(m=>{
+      const close=new Date(m.close_time||m.expiration_time||0).getTime();
+      return close>itvStart&&close<=itvEnd;
+    })||null;
+  }
+
+  // FALLBACK: try direct ticker fetch if we have one stored
+  if(!mkt&&entry.kalshiTicker){
+    const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${entry.kalshiTicker}`);
+    if(d?.market&&['settled','finalized'].includes(d.market.status))mkt=d.market;
+  }
+
+  // FALLBACK: constructed tickers
+  if(!mkt){
+    const closeTs=(entry.intervalId+1)*ITV;
+    const tickers=[...buildKalshiTicker(closeTs),...buildKalshiTicker(entry.intervalId*ITV)];
+    for(const ticker of [...new Set(tickers)]){
+      const d=await kalshiDirectFetch(`${KALSHI_BASE}/markets/${ticker}`);
+      if(d?.market&&['settled','finalized'].includes(d.market.status)){mkt=d.market;break;}
+    }
+  }
+
+  if(!mkt||!['settled','finalized'].includes(mkt.status))return entry;
+  if(mkt.ticker)entry.kalshiTicker=mkt.ticker;
+
+  const brtiSettle=parseFloat(mkt.expiration_value)||null;
+  const result=mkt.result;
+  const strike=extractStrike(mkt);
+  if(!result)return entry;
+
+  // Safety: if we have both brtiSettle and strike, cross-check they agree with result
+  // This catches cases where Kalshi result field is populated before BRTI is final
+  if(brtiSettle&&strike){
+    const brtiSaysYes=brtiSettle>strike;
+    const resultSaysYes=result==='yes';
+    if(brtiSaysYes!==resultSaysYes){
+      // Mismatch — BRTI and result disagree, don't settle yet
+      console.warn('Settlement mismatch: BRTI',brtiSettle,'vs strike',strike,'but result=',result);
+      return entry;
+    }
+  }
+
+  if(brtiSettle)entry.brtiSettle=brtiSettle;
+  entry.kalshiResult=result;
+  if(strike)entry.kalshiStrike=strike;
+  entry.kalshiResolved=true;
+  entry.outcome=result==='yes'?'up':'down';
+
+  for(const mark of SNAP_MARKS){
+    const s=entry.snapshots[mark];
+    if(s&&s.outcome==='pending'){
+      if(s.verdict==='WAIT')s.outcome='skip';
+      else if(s.verdict==='YES')s.outcome=result==='yes'?'correct':'wrong';
+      else if(s.verdict==='NO')s.outcome=result==='no'?'correct':'wrong';
+    }
+  }
+  return entry;
+}
+
+// ══════════════════════════════════════════════════════
+// PREDICTION HISTORY — multi-snapshot
+// ══════════════════════════════════════════════════════
+let history=JSON.parse(localStorage.getItem('btc_history_v3')||'[]');
+let histExpanded=false;
+let snappedThis={}; // {iid: {3:bool,6:bool,10:bool}}
+
+function currentIid(){return Math.floor(Date.now()/ITV);}
+function minIntoInterval(){return(Date.now()%ITV)/60000;}
+function saveHistory(){localStorage.setItem('btc_history_v3',JSON.stringify(history.slice(-100)));}
+
+async function tickHistory(price,verdict,kalshiStrike){
+  const iid=currentIid(),minIn=minIntoInterval();
+
+  // Ensure entry for this interval
+  let entry=history.find(h=>h.intervalId===iid);
+  if(!entry){
+    const itvStartDate=new Date(iid*ITV);
+    entry={
+      intervalId:iid,
+      kalshiTicker:_currentKalshiTicker||null,
+      openPrice:price,
+      kalshiStrike:kalshiStrike||null,
+      brtiSettle:null,
+      kalshiResult:null,
+      kalshiResolved:false,
+      outcome:null,
+      snapshots:{},
+      time:itvStartDate.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+      date:itvStartDate.toLocaleDateString([],{month:'short',day:'numeric'})
+    };
+    history.push(entry);
+  }
+  // Update strike only if it's confirmed for this interval
+  const strikeForThisInterval=(lastKalshiStrikeIid===iid)?lastKalshiStrike:null;
+  if(strikeForThisInterval&&!entry.kalshiStrike)entry.kalshiStrike=strikeForThisInterval;
+
+  // Take snapshots
+  if(!snappedThis[iid])snappedThis[iid]={};
+  for(const mark of SNAP_MARKS){
+    if(minIn>=mark&&minIn<mark+0.6&&!snappedThis[iid][mark]){
+      snappedThis[iid][mark]=true;
+      entry.snapshots[mark]={verdict,price,outcome:verdict==='WAIT'?'skip':'pending'};
+      sbUpsert(entry);
+    }
+  }
+
+  // Try to resolve previous intervals from Kalshi
+  let changed=false;
+  for(let i=0;i<history.length;i++){
+    const h=history[i];
+    if(h.intervalId>=iid)continue;
+    if(h.kalshiResolved)continue;
+    const resolved=await resolveFromKalshi(h);
+    if(resolved.kalshiResolved){history[i]=resolved;changed=true;sbUpsert(resolved);}
+  }
+  if(changed)saveHistory();
+  saveHistory();
+  renderHistory();
+}
+
+function calcAcc(entries,mark){
+  const res=entries.filter(h=>{const s=h.snapshots[mark];return s&&(s.outcome==='correct'||s.outcome==='wrong');});
+  if(!res.length)return null;
+  const c=res.filter(h=>h.snapshots[mark].outcome==='correct').length;
+  return{correct:c,total:res.length,pct:Math.round(c/res.length*100)};
+}
+
+function snapDot(snap){
+  if(!snap)return`<span class="sdot sd-sk" title="No snapshot">—</span>`;
+  if(snap.outcome==='skip')return`<span class="sdot sd-sk" title="WAIT — no bet taken">—</span>`;
+  const sym=snap.verdict==='YES'?'▲':'▼';
+  const px='$'+Math.round(snap.price||0).toLocaleString();
+  if(snap.outcome==='pending'){
+    return`<span class="sdot sd-pn" title="Pending: ${snap.verdict} @ ${px}">${sym}</span>`;
+  }
+  const isCorrect=snap.outcome==='correct';
+  // Color = outcome: green=correct, red=wrong. Shape = direction: ▲=YES bet, ▼=NO bet
+  const cls=snap.verdict==='YES'?(isCorrect?'sd-yc':'sd-yw'):(isCorrect?'sd-nc':'sd-nw');
+  const title=(isCorrect?'✓ CORRECT':'✗ WRONG')+': bet '+snap.verdict+' @ '+px;
+  return`<span class="sdot ${cls}" title="${title}">${sym}</span>`;
+}
+
+function drawMiniCurve(id,entries,mark){
+  const c=document.getElementById(id);if(!c)return;
+  const ctx=c.getContext('2d'),W=c.width,H=c.height;
+  ctx.clearRect(0,0,W,H);
+  const res=entries.filter(h=>{const s=h.snapshots[mark];return s&&(s.outcome==='correct'||s.outcome==='wrong');});
+  if(res.length<2)return;
+  const pts=res.map((_,i)=>{
+    const w=res.slice(Math.max(0,i-4),i+1);
+    return w.filter(h=>h.snapshots[mark].outcome==='correct').length/w.length;
+  });
+  ctx.beginPath();
+  pts.forEach((v,i)=>{const x=i/(pts.length-1)*W,y=H-v*H*.8-H*.1;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  const last=pts[pts.length-1];
+  ctx.strokeStyle=last>=0.6?'#0FA868':last>=0.45?'#E8A030':'#D03030';
+  ctx.lineWidth=1.5;ctx.stroke();
+  ctx.beginPath();ctx.setLineDash([2,2]);
+  ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);
+  ctx.strokeStyle='rgba(128,128,128,0.25)';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+}
+
+function renderHistory(){
+  const all=history.slice().reverse();
+
+  // Accuracy pills
+  for(const mark of SNAP_MARKS){
+    const acc=calcAcc(all,mark);
+    const el=document.getElementById('acc'+mark);
+    if(acc){
+      const col=acc.pct>=60?'var(--green-strong)':acc.pct>=45?'var(--amber)':'var(--red-strong)';
+      el.textContent=mark+'m: '+acc.correct+'/'+acc.total+' ('+acc.pct+'%)';
+      el.style.color=col;
+    }else{el.textContent=mark+'m: pending';el.style.color='';}
+  }
+  const res=all.filter(h=>h.kalshiResolved);
+  if(res.length){
+    let c=0,t=0;
+    for(const h of res){
+      const s=h.snapshots[6]||h.snapshots[3]||h.snapshots[10];
+      if(s&&(s.outcome==='correct'||s.outcome==='wrong')){t++;if(s.outcome==='correct')c++;}
+    }
+    const p=t?Math.round(c/t*100):null;
+    const el=document.getElementById('accAll');
+    el.textContent=p!=null?'Overall: '+c+'/'+t+' ('+p+'%)'+'':'Overall: pending';
+    if(p!=null)el.style.color=p>=60?'var(--green-strong)':p>=45?'var(--amber)':'var(--red-strong)';
+  }
+
+  if(!all.length){
+    const scrollRow=document.getElementById('paScrollRow');
+    if(scrollRow)scrollRow.innerHTML='<div id="histEmpty" style="color:var(--text3);font-size:11px;padding:8px">No history yet.</div>';
+    return;
+  }
+  const empty=document.getElementById('histEmpty');
+  if(empty)empty.style.display='none';
+
+  // Render horizontal cards
+  const scrollRow=document.getElementById('paScrollRow');
+  if(scrollRow){
+    const show=histExpanded?all:all.slice(0,20);
+    scrollRow.innerHTML=show.map((h,idx)=>{
+      const isResolved=h.kalshiResolved;
+      let rowBg='';
+      if(isResolved){
+        const s=h.snapshots[6]||h.snapshots[3]||h.snapshots[10];
+        if(s&&s.outcome==='correct')rowBg='border-color:var(--green-strong-b);background:rgba(15,168,104,0.07)';
+        else if(s&&s.outcome==='wrong')rowBg='border-color:var(--red-strong-b);background:rgba(208,48,48,0.07)';
+      }
+      // Line 1: time + date (no space in AM/PM, date as M/D)
+      const timeStr=h.time.replace(/\s*(AM|PM)/i,m=>m.trim());
+      const dateObj=new Date(h.intervalId*ITV);
+      const dateStr=(dateObj.getMonth()+1)+'/'+(dateObj.getDate());
+
+      // Line 2: result + settlement price (same color)
+      let line2Html='';
+      if(isResolved&&h.kalshiResult){
+        const isYes=h.kalshiResult==='yes';
+        const col=isYes?'var(--green-strong)':'var(--red-strong)';
+        const arrow=isYes?'▲ YES':'▼ NO';
+        const settle=h.brtiSettle?h.brtiSettle.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+        line2Html=`<div class="pa-card-res" style="color:${col};font-size:9px">${arrow} ${settle}</div>`;
+      }
+
+      // Line 3: strike in amber
+      const strikeHtml=h.kalshiStrike
+        ?`<div class="pa-card-strike">$${h.kalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`
+        :'<div class="pa-card-strike">—</div>';
+
+      return '<div class="pa-card'+(idx===0?' pa-card-latest':'')+'" style="'+rowBg+'">'+
+        `<div class="pa-card-time">${timeStr}</div>`+
+        `<div class="pa-card-date">${dateStr}</div>`+
+        line2Html+
+        strikeHtml+
+        '<div class="pa-card-dots">'+SNAP_MARKS.map(m=>snapDot(h.snapshots[m])).join('')+'</div>'+
+        '</div>';
+    }).join('');
+  }
+
+  const btn=document.getElementById('expandBtn');
+  if(btn)btn.textContent=histExpanded?'SHOW LESS':'SHOW ALL';
+  // Accuracy sparkline removed in 13.6
+  const sparkCanvas=null;
+  if(sparkCanvas){
+    const resolved=all.filter(h=>h.kalshiResolved).slice(0,10).reverse();
+    // Hi-res canvas: render at 2x device pixel ratio
+    const dpr=window.devicePixelRatio||2;
+    const dispW=sparkCanvas.offsetWidth||120;
+    const dispH=52;
+    sparkCanvas.width=dispW*dpr;
+    sparkCanvas.height=dispH*dpr;
+    sparkCanvas.style.width=dispW+'px';
+    sparkCanvas.style.height=dispH+'px';
+    const sctx=sparkCanvas.getContext('2d');
+    sctx.scale(dpr,dpr);
+    sctx.clearRect(0,0,dispW,dispH);
+    if(resolved.length>0){
+      const n=resolved.length;
+      const bw=Math.floor((dispW-2)/n);
+      const gap=1;
+      resolved.forEach((h,i)=>{
+        const s6=h.snapshots[6];
+        const correct=s6&&s6.outcome==='correct';
+        const wrong=s6&&s6.outcome==='wrong';
+        sctx.fillStyle=correct?'#0FA868':wrong?'#D03030':'#3a3a4a';
+        const x=i*(bw+gap)+1;
+        const barH=correct?dispH-4:wrong?Math.round((dispH-4)*0.5):4;
+        sctx.beginPath();
+        sctx.roundRect(x,dispH-barH,bw,barH,2);
+        sctx.fill();
+      });
+    }
+  }
+  // Streak counter
+  const streakEl=document.getElementById('streakBadge');
+  if(streakEl){
+    const resolved=all.filter(h=>h.kalshiResolved);
+    let streak=0;
+    for(const h of resolved){
+      const s=h.snapshots[6];
+      if(s&&s.outcome==='correct')streak++;
+      else break;
+    }
+    if(streak>=2){
+      const fire=streak>=5?'🔥🔥':streak>=3?'🔥':'✨';
+      streakEl.style.display='block';
+      streakEl.textContent=fire+' '+streak;
+      streakEl.style.color=streak>=3?'var(--amber)':'var(--green-strong)';
+    } else {
+      streakEl.style.display='none';
+    }
+  }
+  const pau=document.getElementById('paUpdated');
+  if(pau)pau.textContent='updated '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  // Latest pill is now on left — scrollLeft=0 shows it
+  const outer=document.querySelector('.pa-scroll-outer');
+  if(outer)outer.scrollLeft=0;
+
+  // Settle any pending bot trades
+  settleBotTrades();
+}
+
+function toggleExpand(){
+  histExpanded=!histExpanded;
+  const btn=document.getElementById('expandBtn');
+  if(btn)btn.textContent=histExpanded?'SHOW LESS':'SHOW ALL';
+  renderHistory();
+}
+
+function clearHistory(){
+  if(!confirm('Clear all prediction history? This cannot be undone.'))return;
+  history=[];
+  snappedThis={};
+  saveHistory();
+  renderHistory();
+}
+
+async function reResolveAll(){
+  // Force re-resolution of all past entries by clearing resolved flag
+  const iid=currentIid();
+  let count=0;
+  history=history.map(h=>{
+    if(h.intervalId>=iid)return h;
+    // Full reset — clear all Kalshi data and re-resolve from scratch
+    h.kalshiResolved=false;
+    h.kalshiTicker=null;
+    h.kalshiStrike=null;
+    h.brtiSettle=null;
+    h.kalshiResult=null;
+    h.outcome=null;
+    // Reset snapshot outcomes to pending so they get re-evaluated
+    for(const mark of [3,6,10]){
+      if(h.snapshots[mark]&&h.snapshots[mark].outcome!=='skip'){
+        h.snapshots[mark].outcome='pending';
+      }
+    }
+    count++;
+    return h;
+  });
+  saveHistory();
+  renderHistory();
+  // Now trigger resolution sweep
+  const btn=document.querySelector('button[onclick="reResolveAll()"]');
+  if(btn){btn.textContent='…';btn.disabled=true;}
+  for(const h of history.filter(x=>!x.kalshiResolved&&x.intervalId<iid)){
+    const resolved=await resolveFromKalshi(h);
+    if(resolved.kalshiResolved){
+      const idx=history.findIndex(x=>x.intervalId===h.intervalId);
+      if(idx>=0){history[idx]=resolved;sbUpsert(resolved);}
+    }
+  }
+  saveHistory();renderHistory();
+  if(btn){btn.textContent='↺';btn.disabled=false;}
+}
+
+function exportCSV(){
+  const rows=[['Date','Time','IntervalID','KalshiStrike','BRTISettle','KalshiResult','3m_Verdict','3m_Price','3m_Outcome','6m_Verdict','6m_Price','6m_Outcome','10m_Verdict','10m_Price','10m_Outcome']];
+  history.slice().reverse().forEach(h=>{
+    const s3=h.snapshots[3]||{},s6=h.snapshots[6]||{},s10=h.snapshots[10]||{};
+    rows.push([h.date,h.time,h.intervalId,h.kalshiStrike||'',h.brtiSettle||'',h.kalshiResult||'',
+      s3.verdict||'',s3.price?Math.round(s3.price):'',s3.outcome||'',
+      s6.verdict||'',s6.price?Math.round(s6.price):'',s6.outcome||'',
+      s10.verdict||'',s10.price?Math.round(s10.price):'',s10.outcome||'']);
+  });
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(r=>r.join(',')).join('\n'));
+  a.download=`kalshi_btc_build15_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════
+// INDICATORS
+// ══════════════════════════════════════════════════════
+const ema=(arr,p)=>{if(!arr.length)return 0;if(arr.length<=p)return arr.at(-1);const k=2/(p+1);let e=arr.slice(0,p).reduce((a,b)=>a+b,0)/p;for(let i=p;i<arr.length;i++)e=arr[i]*k+e*(1-k);return e;};
+const rsi=(arr,p=14)=>{if(arr.length<p+1)return 50;let g=0,l=0;for(let i=arr.length-p;i<arr.length;i++){const d=arr[i]-arr[i-1];d>0?g+=d:l-=d;}return 100-100/(1+(g/(l||.001)));};
+const macdFn=arr=>{if(arr.length<26)return{hist:0};const m=ema(arr,12)-ema(arr,26);const sv=[];for(let i=Math.max(0,arr.length-9);i<arr.length;i++)sv.push(ema(arr.slice(0,i+1),12)-ema(arr.slice(0,i+1),26));return{hist:m-ema(sv,9)};};
+const bband=(arr,p=20)=>{if(arr.length<p)return{pct:.5};const sl=arr.slice(-p),mid=sl.reduce((a,b)=>a+b,0)/p;const std=Math.sqrt(sl.reduce((a,b)=>a+(b-mid)**2,0)/p);const u=mid+2*std,lo=mid-2*std;return{pct:(arr.at(-1)-lo)/((u-lo)||1)};};
+function slope(arr,n=5){const s=arr.slice(-n);if(s.length<2)return 0;const mid=s[0];let sx=0,sy=0,sxy=0,sxx=0;for(let i=0;i<s.length;i++){sx+=i;sy+=s[i]-mid;sxy+=i*(s[i]-mid);sxx+=i*i;}return((s.length*sxy-sx*sy)/(s.length*sxx-sx*sx||1))/mid*100;}
+
+function analyze(closes,volumes,kalshiImplied=null){
+  const last=closes.at(-1);
+  const r=rsi(closes),m=macdFn(closes),b=bband(closes);
+  const e9=ema(closes,9),e21=ema(closes,21),e50=ema(closes,50);
+  const avgV=volumes.slice(-20).reduce((a,b)=>a+b,0)/20,vr=(volumes.at(-1)||1)/(avgV||1);
+  const c1=closes.length>60?((last-closes[closes.length-61])/closes[closes.length-61]*100).toFixed(2):((last-closes[0])/closes[0]*100).toFixed(2);
+  const c4=closes.length>240?((last-closes[closes.length-241])/closes[closes.length-241]*100).toFixed(2):c1;
+
+  const msIn=Date.now()%ITV,minIn=msIn/60000,pct=msIn/ITV;
+  const itvOpenIdx=Math.max(0,closes.length-1-Math.round(minIn));
+  const itvOpen=closes[itvOpenIdx]||last;
+  const itvMove=((last-itvOpen)/itvOpen)*100;
+
+  // ── FIX 1: Candle lag compensation ─────────────────────────────
+  // 1-min candles mean velocity lags by up to 60s. Weight velocity
+  // by how "fresh" it is — further into a candle = less reliable.
+  // Also use vel8 as a smoothed baseline to reduce noise.
+  const vel3=slope(closes,3),vel8=slope(closes,8),velAccel=vel3-vel8;
+  const secIntoCandle=(Date.now()%60000)/1000;
+  const candleFreshness=1-(secIntoCandle/60)*0.4; // 1.0 at candle open → 0.6 at candle close
+
+  // ── FIX 2: Recalibrated weights — cap velocity dominance ───────
+  // Old: lateW = pct^1.5 * 2  (could reach 2.0 at 100%)
+  // New: cap at 1.0, blend with interval move for stability
+  const lateW=Math.min(1.0,Math.pow(pct,1.5)*1.5)*candleFreshness;
+  const tradSc=Math.max(0.5,1-pct*0.5); // traditional signals never drop below 0.5x (was 0.4)
+
+  // ── FIX 3: Stability feedback — penalise model that's been flipping ──
+  // Count consecutive same-direction verdicts in verdictBuffer
+  // More flips = lower confidence ceiling, signal is noisy
+  let stabilityFactor=1.0;
+  let stabilityStreak=0;
+  if(verdictBuffer.length>=2){
+    const latestDir=verdictBuffer.at(-1)?.verdict;
+    for(let i=verdictBuffer.length-1;i>=0;i--){
+      if(verdictBuffer[i].verdict===latestDir)stabilityStreak++;
+      else break;
+    }
+    const flipCount=verdictBuffer.slice(-6).reduce((acc,v,i,arr)=>{
+      if(i>0&&v.verdict!==arr[i-1].verdict&&v.verdict!=='WAIT'&&arr[i-1].verdict!=='WAIT')return acc+1;
+      return acc;
+    },0);
+    // Each flip in last 6 readings reduces stability by 12%, floored at 0.55
+    stabilityFactor=Math.max(0.55,1-flipCount*0.12);
+  }
+
+  // Kalshi weight — quadratic but capped lower than before
+  // Old KALSHI_WEIGHT_MULT=22. New=16 — still dominant late, less extreme early
+  const KALSHI_WEIGHT_MULT=16;
+  const kalshiW=kalshiImplied!==null ? Math.pow(pct,2)*KALSHI_WEIGHT_MULT : 0;
+  const kalshiD=kalshiImplied!==null
+    ? (kalshiImplied>55?'b':kalshiImplied<45?'s':'n')
+    : 'n';
+  const kalshiDesc=kalshiImplied!==null
+    ? `Market implies ${kalshiImplied.toFixed(1)}% YES`
+    : 'No Kalshi data';
+
+  const sigs=[
+    {n:'RSI (14)',       v:r.toFixed(1),                                d:r>55?'b':r<45?'s':'n',    desc:r>55?'Momentum positive':r<45?'Momentum fading':'Neutral zone',                         w:1.5*tradSc, phase:'trad'},
+    {n:'MACD histogram', v:m.hist.toFixed(2),                           d:m.hist>0?'b':'s',          desc:m.hist>0?'Bullish histogram':'Bearish histogram',                                        w:1.5*tradSc, phase:'trad'},
+    {n:'EMA 9/21 cross', v:e9>e21?'9>21':'9<21',                       d:e9>e21?'b':'s',            desc:e9>e21?'Short trend bullish':'Short trend bearish',                                       w:2.0*tradSc, phase:'trad'},
+    {n:'Price vs EMA 50',v:last>e50?'Above':'Below',                   d:last>e50?'b':'s',          desc:last>e50?'Above mid-term MA':'Below mid-term MA',                                         w:1.0*tradSc, phase:'trad'},
+    {n:'Bollinger %B',   v:(b.pct*100).toFixed(0)+'%',                 d:b.pct>.6?'b':b.pct<.4?'s':'n', desc:b.pct>.6?'Upper band pressure':b.pct<.4?'Lower band zone':'Mid-band',              w:1.0*tradSc, phase:'trad'},
+    {n:'Volume vs avg',  v:vr.toFixed(2)+'x',                          d:vr>1.3?'b':vr<.7?'s':'n', desc:vr>1.3?'Elevated conviction':vr<.7?'Low conviction':'Normal volume',                     w:0.5*tradSc, phase:'trad'},
+    // Live signals — candle-lag-adjusted
+    {n:'Velocity (3m)',  v:(vel3>=0?'+':'')+vel3.toFixed(4)+'%/m',    d:vel3>.005?'b':vel3<-.005?'s':'n', desc:vel3>.005?'Rising fast':vel3<-.005?'Falling fast':'Flat',                   w:(0.8+lateW)*candleFreshness, phase:'live'},
+    {n:'Vel acceleration',v:(velAccel>=0?'+':'')+velAccel.toFixed(4), d:velAccel>.003?'b':velAccel<-.003?'s':'n', desc:velAccel>.003?'Accelerating up':velAccel<-.003?'Decelerating':'Steady', w:(0.4+lateW*0.5)*candleFreshness, phase:'live'},
+    {n:'Interval move',  v:(itvMove>=0?'+':'')+itvMove.toFixed(3)+'%',d:itvMove>.08?'b':itvMove<-.08?'s':'n', desc:`${minIn.toFixed(1)}m in: ${itvMove>=0?'up':'dn'} since open`,           w:Math.max(0.1,lateW*1.0), phase:'live'},
+    {n:'Kalshi implied', v:kalshiImplied!==null?kalshiImplied.toFixed(1)+'%':'—', d:kalshiD, desc:kalshiDesc, w:kalshiW, phase:'kalshi'},
+  ];
+
+  let bw=0,dw=0;sigs.forEach(s=>s.d==='b'?bw+=s.w:s.d==='s'?dw+=s.w:0);
+  const t=bw+dw,bs=t>0?bw/t:.5;
+
+  // ── FIX 4: Calibrated confidence — apply stability dampener ────
+  // Old: conf = 50 + (bs-0.5)*200 → reaches 95% at bs=0.725
+  // New: same curve but capped by stability factor, and max is 90 not 95
+  // This prevents 95% swings when signals are actually noisy
+  const BULL_THRESH=0.60, BEAR_THRESH=0.40;
+  let verdict,conf;
+  if(bs>BULL_THRESH){
+    verdict='YES';
+    conf=Math.min(90,50+(bs-.5)*180)*stabilityFactor;
+    // Bonus for streak: each consecutive same-direction adds 1%, max +5%
+    conf=Math.min(90,conf+Math.min(5,stabilityStreak));
+  } else if(bs<BEAR_THRESH){
+    verdict='NO';
+    conf=Math.min(90,50+(.5-bs)*180)*stabilityFactor;
+    conf=Math.min(90,conf+Math.min(5,stabilityStreak));
+  } else {
+    verdict='WAIT';
+    conf=38+Math.abs(bs-.5)*60;
+  }
+  conf=Math.round(conf);
+
+  // ── FIX 5: Remove late velocity override ───────────────────────
+  // The override was a major source of wild swings — velocity flips
+  // in the last 30% of the interval were overriding everything else.
+  // Now velocity influence is already baked into weights above.
+  // Keeping only a very conservative version: only override WAIT, not YES/NO
+  if(pct>.8&&verdict==='WAIT'&&Math.abs(vel3)>.03&&stabilityFactor>0.75){
+    verdict=vel3>0?'YES':'NO';
+    conf=Math.round(Math.min(62,52+Math.abs(vel3)*300));
+  }
+
+  // Divergence warning: model vs Kalshi
+  let kalshiDivergence=null;
+  if(kalshiImplied!==null&&pct>.5){
+    const modelPct=verdict==='YES'?conf:verdict==='NO'?100-conf:50;
+    const diff=Math.abs(modelPct-kalshiImplied);
+    if(diff>20)kalshiDivergence={modelPct,kalshiImplied,diff};
+  }
+
+  // Expose bulls/bears percentage for bot prompt
+  const bulls=bs*100,bears=(1-bs)*100;
+
+  return{sigs,verdict,conf,rsi:r,e9,e21,e50,c1,c4,vr,bs,bulls,bears,last,closes,volumes,vel3,velAccel,itvMove,itvOpen,minIn,pct,kalshiImplied,kalshiDivergence,stabilityFactor,stabilityStreak};
+}
+
+// ══════════════════════════════════════════════════════
+// DATA FETCHING — BRTI blend (Coinbase mid + Kraken mid + Gemini)
+// ══════════════════════════════════════════════════════
+function lmsg(m,s=''){document.getElementById('lmsg').textContent=m;document.getElementById('lsrc').textContent=s;}
+
+// Get Coinbase mid-price (bid+ask)/2 for each candle — closer to BRTI order-book basis
+async function fetchCoinbase(){
+  lmsg('FETCHING COINBASE (BRTI constituent)...','api.exchange.coinbase.com');
+  const end=new Date().toISOString(),start=new Date(Date.now()-300*60*1000).toISOString();
+  const [k,bk,t]=await Promise.all([
+    fetch(`https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60&start=${start}&end=${end}`).then(r=>{if(!r.ok)throw new Error('CB klines '+r.status);return r.json();}),
+    fetch('https://api.exchange.coinbase.com/products/BTC-USD/book?level=1').then(r=>r.json()),
+    fetch('https://api.exchange.coinbase.com/products/BTC-USD/stats').then(r=>r.json())
+  ]);
+  const sorted=k.slice().reverse();
+  // Use mid-price for candle closes: approximate from OHLC mid
+  const closes=sorted.map(c=>(parseFloat(c[2])+parseFloat(c[3]))/2); // (high+low)/2
+  const volumes=sorted.map(c=>c[5]);
+  const bid=parseFloat(bk.bids?.[0]?.[0]||0);
+  const ask=parseFloat(bk.asks?.[0]?.[0]||0);
+  const spotMid=bid&&ask?(bid+ask)/2:parseFloat(t.last);
+  return{closes,volumes,spotMid,tick:{highPrice:t.high,lowPrice:t.low,quoteVolume:parseFloat(t.volume)*spotMid},src:'COINBASE'};
+}
+
+async function fetchKrakenMid(){
+  lmsg('FETCHING KRAKEN (BRTI constituent)...','api.kraken.com');
+  const [ok,ot]=await Promise.all([
+    fetch('https://api.kraken.com/0/public/OHLC?pair=XBTUSD&interval=1').then(r=>r.json()),
+    fetch('https://api.kraken.com/0/public/Ticker?pair=XBTUSD').then(r=>r.json())
+  ]);
+  if(ok.error?.length)throw new Error(ok.error[0]);
+  const ohlc=ok.result.XXBTZUSD||ok.result[Object.keys(ok.result)[0]];
+  const td=ot.result.XXBTZUSD||ot.result[Object.keys(ot.result)[0]];
+  // Kraken OHLC: [time,open,high,low,close,vwap,volume,count]
+  const closes=ohlc.slice(-300).map(c=>(parseFloat(c[2])+parseFloat(c[3]))/2);
+  const volumes=ohlc.slice(-300).map(c=>parseFloat(c[6]));
+  const bid=parseFloat(td.b[0]),ask=parseFloat(td.a[0]);
+  const spotMid=(bid+ask)/2;
+  return{closes,volumes,spotMid,tick:{highPrice:td.h[1],lowPrice:td.l[1],quoteVolume:parseFloat(td.v[1])*spotMid},src:'KRAKEN'};
+}
+
+async function fetchGemini(){
+  lmsg('FETCHING GEMINI (BRTI constituent)...','api.gemini.com');
+  const [ticker,candles]=await Promise.all([
+    fetch('https://api.gemini.com/v1/pubticker/btcusd').then(r=>r.json()),
+    fetch('https://api.gemini.com/v2/candles/btcusd/1m').then(r=>r.json())
+  ]);
+  const sorted=candles.slice().reverse();
+  const closes=sorted.map(c=>(c[2]+c[3])/2); // (high+low)/2
+  const volumes=sorted.map(c=>c[5]);
+  const bid=parseFloat(ticker.bid),ask=parseFloat(ticker.ask);
+  const spotMid=(bid+ask)/2;
+  return{closes,volumes,spotMid,tick:{highPrice:parseFloat(ticker.volume?.['BTC']||0),lowPrice:0,quoteVolume:0},src:'GEMINI'};
+}
+
+async function fetchBinanceFallback(){
+  lmsg('FETCHING BINANCE (fallback)...','api.binance.com');
+  const [k,t]=await Promise.all([
+    fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=300').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}),
+    fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT').then(r=>r.json())
+  ]);
+  return{closes:k.map(x=>(parseFloat(x[2])+parseFloat(x[3]))/2),volumes:k.map(x=>parseFloat(x[5])),spotMid:parseFloat(t.lastPrice),tick:t,src:'BINANCE'};
+}
+
+async function fetchData(){
+  // Try BRTI constituent exchanges, blend mid-prices
+  const results=[];
+  const attempts=[
+    async()=>{try{return await fetchCoinbase();}catch(e){console.warn('CB:',e.message);return null;}},
+    async()=>{try{return await fetchKrakenMid();}catch(e){console.warn('Kraken:',e.message);return null;}},
+    async()=>{try{return await fetchGemini();}catch(e){console.warn('Gemini:',e.message);return null;}}
+  ];
+  const fetched=await Promise.all(attempts.map(fn=>fn()));
+  const good=fetched.filter(Boolean);
+
+  if(!good.length){
+    // All BRTI sources failed — fall back to Binance
+    return await fetchBinanceFallback();
+  }
+
+  // Use the longest closes array as base, blend spot mids
+  const base=good.reduce((a,b)=>b.closes.length>a.closes.length?b:a);
+  const blendedSpot=good.reduce((sum,f)=>sum+f.spotMid,0)/good.length;
+  // Replace last candle close with blended mid
+  const closes=[...base.closes.slice(0,-1),blendedSpot];
+  const srcNames=good.map(f=>f.src).join('+');
+  const tick=good[0].tick; // use first good for 24h stats
+
+  return{closes,volumes:base.volumes,tick,src:srcNames+' MID'};
+}
+
+// ══════════════════════════════════════════════════════
+// KALSHI MARKET UI
+// ══════════════════════════════════════════════════════
+// Extract strike price from any Kalshi market response field
+function extractStrike(mkt){
+  if(!mkt)return null;
+  // 1. custom_strike dict
+  if(mkt.custom_strike&&typeof mkt.custom_strike==='object'){
+    for(const v of Object.values(mkt.custom_strike)){
+      const n=parseFloat(String(v).replace(/,/g,''));if(n>1000)return n;
+    }
+  }
+  // 2. standard numeric fields
+  for(const f of['functional_strike','floor_strike','cap_strike']){
+    const n=parseFloat(mkt[f]);if(n>1000)return n;
+  }
+  // 3. any text field — look for dollar amount or large number near keywords
+  const texts=[mkt.yes_sub_title,mkt.no_sub_title,mkt.subtitle,mkt.title,mkt.rules_primary,mkt.rules_secondary];
+  const combined=texts.filter(Boolean).join(' ');
+  // "$77,240.14" or "$ 77240"
+  let m=combined.match(/\$\s*([\d,]+\.?\d*)/);
+  if(m){const n=parseFloat(m[1].replace(/,/g,''));if(n>1000)return n;}
+  // "at least 77,240.44" / "above 77240"
+  m=combined.match(/(?:least|above|below|at|is)\s+([\d,]+\.?\d+)/i);
+  if(m){const n=parseFloat(m[1].replace(/,/g,''));if(n>1000)return n;}
+  // any large standalone number >10000
+  const nums=combined.match(/\b(\d{5,}(?:\.\d+)?)\b/g);
+  if(nums){for(const s of nums){const n=parseFloat(s);if(n>10000&&n<1000000)return n;}}
+  return null;
+}
+
+let lastKalshiStrike=null;
+let lastKalshiStrikeIid=null;
+let lastKalshiImplied=null; // implied prob from Kalshi order book (0-100)
+
+async function refreshKalshiBar(a){
+  const iid=currentIid();
+  const closeTs=(iid*ITV)+ITV;
+  const attemptedTicker=buildKalshiTicker(closeTs)[0]; // show the -15 variant we try first
+  document.getElementById('kTicker').textContent=attemptedTicker;
+  document.getElementById('kStatus').textContent='...';
+  document.getElementById('kStatus').className='kstatus kstatus-closed';
+
+  // Clear stale strike when interval changes
+  if(lastKalshiStrikeIid!==null&&lastKalshiStrikeIid!==iid){
+    lastKalshiStrike=null;
+    lastKalshiStrikeIid=null;
+    lastKalshiImplied=null;
+    document.getElementById('kStrike').textContent='—';
+    document.getElementById('kYesBid').textContent='—';
+    document.getElementById('kImplied').textContent='—';
+    document.getElementById('kResult').textContent='—';
+    document.getElementById('kSettle').textContent='—';
+  }
+
+  const mkt=await getCurrentKalshiMarket();
+  if(!mkt){
+    document.getElementById('kStatus').textContent='CORS BLOCKED';
+    document.getElementById('kStatus').className='kstatus kstatus-closed';
+    document.getElementById('kTicker').textContent=attemptedTicker+' (all proxies failed)';
+    return;
+  }
+  document.getElementById('kTicker').textContent=mkt.ticker||'';
+  document.getElementById('kUpdated').textContent='updated '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  // Status
+  const statusEl=document.getElementById('kStatus');
+  statusEl.textContent=mkt.status.toUpperCase();
+  statusEl.className='kstatus kstatus-'+(['open','active','initialized'].includes(mkt.status)?'open':['settled','finalized'].includes(mkt.status)?'settled':'closed');
+
+  // Strike — only trust this if market is open (not settled from previous interval)
+  const strike=['open','active','initialized'].includes(mkt.status)?extractStrike(mkt):null;
+  if(strike){lastKalshiStrike=strike;lastKalshiStrikeIid=iid;}
+  document.getElementById('kStrike').textContent=strike?'$'+strike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):(lastKalshiStrike&&lastKalshiStrikeIid===iid?'$'+lastKalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—');
+
+  // Backfill strike into any pending bot trade AND active history entry for this interval
+  // Strike is immutable once set — only write once when first confirmed
+  if(strike&&lastKalshiStrikeIid===iid){
+    let backfilled=false;
+    for(const trade of bot.trades){
+      if(trade.iid===iid&&!trade.kalshiStrike){
+        trade.kalshiStrike=strike;
+        backfilled=true;
+      }
+    }
+    if(backfilled){saveBot();renderBot();}
+    // Also update active history entry strike if not yet set
+    const activeEntry=history.find(h=>h.intervalId===iid);
+    if(activeEntry&&!activeEntry.kalshiStrike){
+      activeEntry.kalshiStrike=strike;
+      saveHistory();
+      // Re-render so PA card shows the strike immediately
+      renderHistory();
+    }
+  }
+
+  // Bid/ask + implied prob
+  const yesBid=parseFloat(mkt.yes_bid_dollars)||null;
+  const yesAsk=parseFloat(mkt.yes_ask_dollars)||null;
+  document.getElementById('kYesBid').textContent=yesBid&&yesAsk?`${(yesBid*100).toFixed(0)}¢ / ${(yesAsk*100).toFixed(0)}¢`:'—';
+  const implied=yesBid&&yesAsk?(yesBid+yesAsk)/2*100:null;
+  document.getElementById('kImplied').textContent=implied?implied.toFixed(1)+'%':'—';
+  if(implied!==null)lastKalshiImplied=implied;
+
+  // Settlement
+  const settle=parseFloat(mkt.expiration_value)||null;
+  document.getElementById('kSettle').textContent=settle?'$'+settle.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+  document.getElementById('kResult').textContent=mkt.result?mkt.result.toUpperCase():'—';
+  if(mkt.result){
+    const rEl=document.getElementById('kResult');
+    rEl.style.color=mkt.result==='yes'?'var(--green)':'var(--red)';
+    rEl.style.fontWeight='700';
+  }
+
+  // Model vs Kalshi comparison + stability
+  if(a){
+    const implied=a.kalshiImplied;
+    const modelPct=a.verdict==='YES'?a.conf:a.verdict==='NO'?100-a.conf:50;
+    const mvk=document.getElementById('modelVsKalshi');
+    const stabPct=Math.round((a.stabilityFactor||1)*100);
+    const stabCol=stabPct>=85?'var(--green-strong)':stabPct>=70?'var(--amber)':'var(--red-strong)';
+    let txt=`Model: ${modelPct.toFixed(0)}% YES`;
+    if(implied!=null){
+      const diff=(modelPct-implied).toFixed(1);
+      txt+=`  ·  Kalshi: ${implied.toFixed(1)}%  ·  Δ ${diff>0?'+':''}${diff}pp`;
+      mvk.style.color=Math.abs(diff)>10?'var(--amber)':'var(--text3)';
+    }
+    txt+=`  ·  <span style="color:${stabCol}">Stability ${stabPct}%</span>`;
+    mvk.innerHTML=txt;
+  }
+
+  // Resolve any history entries that just settled
+  if(['settled','finalized'].includes(mkt.status)&&settle){
+    let changed=false;
+    history=history.map(h=>{
+      if(h.intervalId!==iid)return h;
+      if(h.kalshiResolved)return h;
+      h.brtiSettle=settle;
+      h.kalshiResult=mkt.result;
+      if(strike)h.kalshiStrike=strike; // only update if we got a real strike
+      h.kalshiResolved=true;
+      h.outcome=mkt.result;
+      for(const mark of SNAP_MARKS){
+        const s=h.snapshots[mark];
+        if(s&&s.outcome==='pending'){
+          if(s.verdict==='WAIT')s.outcome='skip';
+          else if(s.verdict==='YES')s.outcome=mkt.result==='yes'?'correct':'wrong';
+          else if(s.verdict==='NO')s.outcome=mkt.result==='no'?'correct':'wrong';
+        }
+      }
+      sbUpsert(h);changed=true;return h;
+    });
+    if(changed){saveHistory();renderHistory();}
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// AI
+// ══════════════════════════════════════════════════════
+async function streamAI(a,tick){
+  const box=document.getElementById('aibox'),key=getKey();
+  if(!getAiEnabled()){
+    box.className='ai-box';
+    box.innerHTML='<span style="color:var(--text3)">AI insight off — toggle <strong style="color:var(--blue);cursor:pointer" onclick="setAiEnabled(true)">AI: ON</strong> in header to enable.</span>';
+    return;
+  }
+  if(!key){box.className='ai-box';box.innerHTML='<span style="color:var(--text3)">AI disabled — add your Anthropic key in <strong style="color:var(--blue);cursor:pointer" onclick="openSettings()">⚙ Settings</strong>.</span>';return;}
+  box.className='ai-box streaming';box.innerHTML='';
+  const fmt=p=>'$'+Math.round(p).toLocaleString();
+  const fmtK=n=>n>1e9?(n/1e9).toFixed(2)+'B':n>1e6?(n/1e6).toFixed(1)+'M':Math.round(n).toLocaleString();
+  const strikeNote=lastKalshiStrike?`Kalshi target strike: $${lastKalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2})} (BRTI must close above this for YES)`:'';
+  const kalshiNote=a.kalshiImplied!==null?`Kalshi market is pricing ${a.kalshiImplied.toFixed(1)}% YES right now (${a.pct>0.5?'late in interval — crowd has conviction':'early — still forming'}).`:'No Kalshi data yet.';
+  const prompt=`You're a trader friend giving a quick gut-check on a Kalshi BTC 15-minute binary market. Skip the jargon — just give me the vibe.
+
+Situation: ${a.minIn.toFixed(1)} minutes in, ${(15-a.minIn).toFixed(1)} min left. Model says ${a.verdict} at ${a.conf.toFixed(0)}% confidence. ${strikeNote} ${kalshiNote} BTC is ${a.itvMove>=0?'up':'down'} ${Math.abs(parseFloat(a.itvMove)).toFixed(3)}% since this interval opened.
+
+Write 2-3 sentences like you're texting a friend who's about to place a bet. Tell me: does this feel like a good spot, what could go wrong, and should I act now or hold off. Plain words only — no indicator names, no technical terms, no disclaimers.`;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','anthropic-version':'2023-06-01','x-api-key':key,'anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,stream:true,messages:[{role:'user',content:prompt}]})});
+    if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'HTTP '+r.status);}
+    const reader=r.body.getReader(),dec=new TextDecoder();let buf='';
+    while(true){const{done,value}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();for(const line of lines){if(line.startsWith('data: ')){try{const d=JSON.parse(line.slice(6));if(d.delta?.text)box.innerHTML+=d.delta.text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');}catch{}}}}
+    box.className='ai-box';
+  }catch(e){
+    box.className='ai-box';
+    if(e.message.includes('401')||e.message.includes('invalid'))box.innerHTML=`Invalid key. <strong style="color:var(--blue);cursor:pointer" onclick="openSettings()">Update →</strong>`;
+    else box.textContent='AI unavailable: '+e.message;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER SIGNALS
+// ══════════════════════════════════════════════════════
+let chart=null;
+function redrawChart(a){
+  // Determine slice based on timeframe
+  let sl;
+  if(chartTf==='15m'){
+    // Only show current interval — price since interval open
+    const minIn=a.minIn||0;
+    const candlesIn=Math.max(1,Math.round(minIn));
+    sl=a.closes.slice(-Math.min(candlesIn,60));
+  } else {
+    const tfMap={'1h':60,'3h':180,'6h':360,'12h':720,'24h':1440};
+    const n=tfMap[chartTf]||60;
+    sl=a.closes.slice(-Math.min(n,a.closes.length));
+  }
+  const isUp=parseFloat(a.c1)>=0;
+  const lineCol=isUp?'#1DB87A':'#E05252';
+  const strike=lastKalshiStrike;
+  const itvOpen=a.itvOpen;
+  // interval move direction for dot color
+  const itvUp=a.itvMove>=0;
+  const now=Date.now();
+
+  // Build plugin for strike line + time labels drawn on canvas
+  const overlayPlugin={
+    id:'overlay',
+    afterDraw(ch){
+      const {ctx,chartArea:{left,right,top,bottom},scales:{y,x}}=ch;
+      if(!y)return;
+      const yMin=y.min,yMax=y.max;
+      function hline(price,color,dash,lineWidth,label){
+        if(price<yMin||price>yMax)return;
+        const yPx=y.getPixelForValue(price);
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash(dash);
+        ctx.lineWidth=lineWidth;
+        ctx.strokeStyle=color;
+        ctx.moveTo(left,yPx);
+        ctx.lineTo(right,yPx);
+        ctx.stroke();
+        if(label){
+          ctx.setLineDash([]);
+          ctx.font='bold 9px SF Mono,monospace';
+          ctx.fillStyle=color;
+          ctx.textAlign='right';
+          ctx.fillText(label,right-2,yPx-3);
+        }
+        ctx.restore();
+      }
+      if(strike) hline(strike,'rgba(232,160,48,0.55)',[4,3],1,'$'+strike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}));
+
+      // Draw time labels manually so plot area fills full width
+      if(x&&timeLabels.length){
+        ctx.save();
+        ctx.font=`8px 'SF Mono','Fira Code',monospace`;
+        ctx.fillStyle='rgba(120,120,160,0.55)';
+        ctx.textAlign='center';
+        // Use getPixelForValue so labels align exactly with chart line positions
+        const n=timeLabels.length;
+        [[0,'left'],[12,'center'],[24,'center'],[36,'center'],[48,'center'],[n-1,'right']].forEach(([idx,align])=>{
+          const xPx=x.getPixelForValue(idx);
+          const lbl=timeLabels[idx];
+          const w=ctx.measureText(lbl).width;
+          const drawX=align==='left'?xPx:align==='right'?xPx-w:xPx-w/2;
+          ctx.textAlign='left';
+          ctx.fillText(lbl,drawX,bottom+12);
+        });
+        ctx.restore();
+      }
+    }
+  };
+
+  // Generate time labels — 1 candle = 1 minute, last candle = now
+  const timeLabels=sl.map((_,i)=>{
+    const t=new Date(now-(sl.length-1-i)*60000);
+    return t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  });
+
+  // Y scale: enforce minimum range of 0.6% of price so lines have breathing room
+  const allPrices=[...sl];
+  if(strike)allPrices.push(strike);
+  const dataMin=Math.min(...allPrices);
+  const dataMax=Math.max(...allPrices);
+  const mid=(dataMin+dataMax)/2;
+  const minRange=mid*0.006; // 0.6% minimum visible range
+  const pad=Math.max((dataMax-dataMin)*0.08,minRange*0.1);
+  const yMin=Math.min(dataMin,mid-minRange/2)-pad;
+  const yMax=Math.max(dataMax,mid+minRange/2)+pad;
+
+  if(chart)chart.destroy();
+  chart=new Chart(document.getElementById('spark'),{
+    type:'line',
+    data:{
+      labels:timeLabels,
+      datasets:[{
+        data:sl,
+        borderColor:lineCol,
+        borderWidth:1.5,
+        pointRadius:0,
+        fill:true,
+        backgroundColor:isUp?'rgba(29,184,122,0.08)':'rgba(224,82,82,0.08)',
+        tension:.3
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      layout:{padding:{left:0,right:0,top:0,bottom:14}},
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{
+        x:{display:false,offset:false},
+        y:{display:false,min:yMin,max:yMax}
+      }
+    },
+    plugins:[overlayPlugin]
+  });
+
+  // Dot — colored by interval move direction
+  setTimeout(()=>requestAnimationFrame(()=>{
+    const dot=document.getElementById('chartDot');
+    if(!dot||!a.closes||a.closes.length<2)return;
+    const cv=document.getElementById('spark');
+    const ch=Chart.getChart(cv);
+    if(!ch||!ch.scales||!ch.scales.x||!ch.scales.y)return;
+    const ds=ch.data.datasets[0];
+    if(!ds||!ds.data||!ds.data.length)return;
+    const lastIdx=ds.data.length-1;
+    const x=ch.scales.x.getPixelForValue(lastIdx);
+    const y=ch.scales.y.getPixelForValue(ds.data[lastIdx]);
+    dot.style.display='block';
+    dot.style.background=itvUp?'var(--green-strong)':'var(--red-strong)';
+    dot.style.left=Math.round(x-4)+'px';
+    dot.style.top=Math.round(y-4)+'px';
+    dot.classList.add('chart-dot-anim');
+    dot.title='$'+Math.round(a.last).toLocaleString();
+    // Price label — positioned left of dot so it doesn't clip at right edge
+    const lbl=document.getElementById('chartPriceLabel');
+    if(lbl){
+      lbl.textContent='$'+Math.round(a.last).toLocaleString();
+      lbl.style.display='block';
+      lbl.style.right=(ch.chartArea.right-x+10)+'px';
+      lbl.style.top=Math.round(y-6)+'px';
+      lbl.style.color=itvUp?'var(--green-strong)':'var(--red-strong)';
+    }
+  }),200);
+}
+
+function renderSignals(a,tick,src){
+  const fmt=p=>'$'+Math.round(p).toLocaleString();
+  const fmtK=n=>n>1e9?(n/1e9).toFixed(2)+'B':n>1e6?(n/1e6).toFixed(1)+'M':Math.round(n).toLocaleString();
+  const ch=parseFloat(a.c1),dir=ch>0?'up':ch<0?'dn':'neu';
+
+  document.getElementById('hPrice').textContent=fmt(a.last);
+  document.getElementById('hChange').textContent=(ch>=0?'+':'')+ch+'% 1h';
+  document.getElementById('hChange').className=dir;
+  document.getElementById('srcBadge').textContent=src;
+
+  const vc=document.getElementById('vcard');
+  vc.className='vcard '+(a.verdict==='YES'?'vy':a.verdict==='NO'?'vn':'vw');
+  document.getElementById('vtitle').textContent=a.verdict==='YES'?'BET YES ↑':a.verdict==='NO'?'BET NO ↓':'WAIT / SKIP';
+  document.getElementById('vsub').textContent=a.verdict==='YES'?'Signals favor price UP':a.verdict==='NO'?'Signals favor price DOWN':'Signals too mixed';
+  document.getElementById('cpct').textContent=a.conf.toFixed(0)+'%';
+  const cb=document.getElementById('cbar');cb.style.width=a.conf+'%';
+  cb.style.background=a.verdict==='YES'?'#1DB87A':a.verdict==='NO'?'#E05252':'#888';
+
+  const bp=(a.bs*100).toFixed(0),dp=(100-a.bs*100).toFixed(0);
+  document.getElementById('bullP').textContent=bp;document.getElementById('bearP').textContent=dp;
+  document.getElementById('bbbar').innerHTML=`<div style="flex:${dp};background:#E05252;opacity:.3;min-width:0"></div><div style="flex:${bp};background:#1DB87A;min-width:0"></div>`;
+
+  const rv=document.getElementById('rsiV');rv.textContent=a.rsi.toFixed(0);rv.className='val '+(a.rsi>65?'up':a.rsi>55?'up-light':a.rsi<35?'dn':a.rsi<45?'dn-light':'neu');
+  const vv=document.getElementById('volV');vv.textContent=a.vr.toFixed(2)+'x';vv.className='val '+(a.vr>1.8?'up':a.vr>1.3?'up-light':a.vr<0.5?'dn':a.vr<.7?'dn-light':'neu');
+  const cv=document.getElementById('ch4V');cv.textContent=(parseFloat(a.c4)>=0?'+':'')+a.c4+'%';cv.className='val '+(parseFloat(a.c4)>0.5?'up':parseFloat(a.c4)>0?'up-light':parseFloat(a.c4)<-0.5?'dn':'dn-light');
+  document.getElementById('velV').textContent=(a.vel3>=0?'+':'')+a.vel3.toFixed(4)+'%/m';document.getElementById('velV').className='val '+(a.vel3>.015?'up':a.vel3>.005?'up-light':a.vel3<-.015?'dn':a.vel3<-.005?'dn-light':'neu');
+  document.getElementById('itvV').textContent=(a.itvMove>=0?'+':'')+a.itvMove.toFixed(3)+'%';document.getElementById('itvV').className='val '+(a.itvMove>.15?'up':a.itvMove>.08?'up-light':a.itvMove<-.15?'dn':a.itvMove<-.08?'dn-light':'neu');
+  document.getElementById('accelV').textContent=(a.velAccel>=0?'+':'')+a.velAccel.toFixed(4);document.getElementById('accelV').className='val '+(a.velAccel>.008?'up':a.velAccel>.003?'up-light':a.velAccel<-.008?'dn':a.velAccel<-.003?'dn-light':'neu');
+
+  document.getElementById('m1h').textContent=(ch>=0?'+':'')+ch+'%';document.getElementById('m1h').className='val '+dir;
+  document.getElementById('m24h').textContent=fmt(parseFloat(tick.highPrice||0));
+  document.getElementById('m24l').textContent=fmt(parseFloat(tick.lowPrice||0));
+  document.getElementById('mvol').textContent=fmtK(parseFloat(tick.quoteVolume||0));
+  document.getElementById('mema9').textContent=fmt(a.e9);document.getElementById('mema9').className='val '+(a.last>a.e9?'up':'dn');
+  document.getElementById('mema21').textContent=fmt(a.e21);document.getElementById('mema21').className='val '+(a.last>a.e21?'up':'dn');
+
+  // Badge helper: bull/bear signals get strong vs light based on magnitude
+  function badgeCls(sig){
+    if(sig.d==='n')return'bn';
+    const isBull=sig.d==='b';
+    // Strong signals: high weight AND clear value
+    const isStrong=sig.w>=(isBull?1.5:1.5)||
+      (sig.n.includes('RSI')&&(parseFloat(sig.v)>65||parseFloat(sig.v)<35))||
+      (sig.n.includes('velocity')&&Math.abs(parseFloat(sig.v))>0.015)||
+      (sig.n.includes('Interval')&&Math.abs(parseFloat(sig.v))>0.15);
+    if(isBull)return isStrong?'bu-s':'bu-l';
+    return isStrong?'bd-s':'bd-l';
+  }
+  // Signal hover tooltips — plain language explanations
+  const SIG_TIPS={
+    'RSI (14)':'Measures how overbought or oversold BTC is on a 0–100 scale. Above 70 means the market is overheated and a pullback is likely; below 30 means it may be due for a bounce.',
+    'MACD histogram':'Shows the gap between two moving averages of price momentum. A growing green bar means upward momentum is building; a growing red bar means selling pressure is increasing.',
+    'EMA 9/21 cross':'Compares two exponential moving averages — a fast 9-period and a slower 21-period. When the fast line crosses above the slow line it signals a short-term uptrend is forming.',
+    'Price vs EMA 50':'Compares current price to the 50-period moving average, a key mid-term trend line. Price above EMA 50 is broadly bullish; below is broadly bearish.',
+    'Bollinger %B':'Shows where price sits within its recent volatility band, from 0 (bottom) to 1 (top). Above 1 means price is unusually high and may snap back; below 0 means it is unusually low.',
+    'Volume vs avg':'Compares current trading volume to the recent average. High volume confirms that a price move has real conviction behind it; low volume suggests the move may not hold.',
+    'Velocity (3m)':'Measures how fast price is changing per minute over the last 3 minutes. Positive and rising means strong upward momentum right now; negative means active selling pressure.',
+    'Vel acceleration':'Tracks whether velocity itself is speeding up or slowing down. Positive acceleration on an uptrend means the move is gaining steam; negative means it is fading.',
+    'Interval move':'How much price has moved since this 15-minute interval opened. A strong move in one direction early in the interval often continues through settlement.',
+    'Kalshi implied':'The probability the market is pricing for a YES outcome, derived from the current bid/ask. This reflects what real money is betting — a strong signal when it diverges from the model.',
+  };
+  function sigTitle(name){ return SIG_TIPS[name]||name; }
+
+  const kalshiSig=a.sigs.find(s=>s.phase==='kalshi');
+  const kalshiWLabel=kalshiSig&&kalshiSig.w>0?`(×${kalshiSig.w.toFixed(1)})`:a.kalshiImplied===null?'(no data)':'(×0.0 — early)';
+  document.getElementById('siglist').innerHTML=`
+    <div style="font-size:11px;letter-spacing:.1em;color:var(--text3);margin-bottom:5px;display:flex;justify-content:space-between">
+      <span>TRADITIONAL <span style="opacity:.6">(×${(1-a.pct*.6).toFixed(1)})</span></span>
+    </div>
+    ${a.sigs.filter(s=>s.phase==='trad').map(s=>`<div class="sig-row" title="${sigTitle(s.n)}"><div><div class="sn">${s.n}</div><div class="sd">${s.desc}</div></div><span class="badge ${badgeCls(s)}">${s.d==='b'?'▲ ':s.d==='s'?'▼ ':'— '}${s.v}</span></div>`).join('')}
+    <div class="sig-row" title="4-hour price change. Shows the broader trend direction over the last 4 hours — useful context for whether short-term moves align with the bigger picture."><div><div class="sn">4h Δ</div><div class="sd">4-hour price change</div></div><span class="badge ${parseFloat(a.c4)>0.5?'bu-s':parseFloat(a.c4)>0?'bu-l':parseFloat(a.c4)<-0.5?'bd-s':'bd-l'}">${parseFloat(a.c4)>=0?'▲ ':'▼ '}${(parseFloat(a.c4)>=0?'+':'')+a.c4}%</span></div>
+    <div style="font-size:11px;letter-spacing:.1em;color:var(--amber);margin:8px 0 5px;display:flex;justify-content:space-between">
+      <span>⚡ LIVE <span style="opacity:.7">(×${(1+Math.pow(a.pct,1.5)*4).toFixed(1)})</span></span>
+      <span style="color:var(--text3)">${a.minIn.toFixed(1)}m elapsed</span>
+    </div>
+    ${a.sigs.filter(s=>s.phase==='live').map(s=>`<div class="sig-row" title="${sigTitle(s.n)}"><div><div class="sn" style="color:${s.d==='b'?'var(--green-strong)':s.d==='s'?'var(--red-strong)':'var(--text2)'}">${s.n}</div><div class="sd">${s.desc}</div></div><span class="badge ${badgeCls(s)}">${s.d==='b'?'▲ ':s.d==='s'?'▼ ':'— '}${s.v}</span></div>`).join('')}
+    <div style="font-size:11px;letter-spacing:.1em;color:var(--blue);margin:8px 0 5px;display:flex;justify-content:space-between">
+      <span>🏦 KALSHI MARKET <span style="opacity:.7">${kalshiWLabel}</span></span>
+    </div>
+    ${a.sigs.filter(s=>s.phase==='kalshi').map(s=>`<div class="sig-row" title="${sigTitle(s.n)}"><div><div class="sn" style="color:${s.d==='b'?'var(--green-strong)':s.d==='s'?'var(--red-strong)':'var(--text2)'}">${s.n}</div><div class="sd">${s.desc}</div></div><span class="badge ${badgeCls(s)}">${s.d==='b'?'▲ ':s.d==='s'?'▼ ':'— '}${s.v}</span></div>`).join('')}
+    ${a.kalshiDivergence?`<div style="font-size:10px;color:var(--amber);padding:5px 0;border-top:1px solid var(--border);margin-top:4px">⚠ Model ${a.kalshiDivergence.modelPct.toFixed(0)}% vs Kalshi ${a.kalshiDivergence.kalshiImplied.toFixed(1)}% — ${a.kalshiDivergence.diff.toFixed(0)}pp divergence</div>`:''}`;
+
+
+  const sl=a.closes.slice(-60),hi=Math.max(...sl),lo=Math.min(...sl);
+  document.getElementById('shi').textContent=fmt(hi);
+  document.getElementById('slo').textContent=fmt(lo);
+  document.getElementById('srng').textContent='$'+Math.round(hi-lo).toLocaleString();
+  redrawChart(a);
+
+  syncPAHeightUntilStable();
+  document.getElementById('stL').innerHTML=`<span class="sdot-live"></span>BRTI BLEND — ${src} · Build ${BUILD}`;
+  const nowT=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('stR').textContent='Signals: '+nowT;
+  const su=document.getElementById('sigsUpdated');if(su)su.textContent='updated '+nowT;
+  const mu=document.getElementById('macroUpdated');if(mu)mu.textContent='updated '+nowT;
+  const vu=document.getElementById('vcUpdated');if(vu)vu.textContent='updated '+nowT;
+  const sbu=document.getElementById('sbUpdated');if(sbu)sbu.textContent='updated '+nowT;
+  const pu=document.getElementById('priceUpdated');if(pu)pu.textContent='updated '+nowT;
+
+  tickHistory(a.last,a.verdict,lastKalshiStrike);
+  // Push to interval chart and stability tracker
+  pushItvData(a.last,a.conf,a.verdict,a.closes);
+  pushVerdictStability(a.verdict,a.conf);
+  // Paper trader
+  checkPaperTrade(a);
+  renderBot();
+}
+
+// ══════════════════════════════════════════════════════
+// TIMER
+// ══════════════════════════════════════════════════════
+let ticker=null;
+
+// ══════════════════════════════════════════════════════
+// TIMER
+// ══════════════════════════════════════════════════════
+
+
+function syncPAHeight(){}
+function syncPAHeightUntilStable(){}
+let _resizeTimer=null;
+window.addEventListener('resize',()=>{
+  clearTimeout(_resizeTimer);
+  _resizeTimer=setTimeout(()=>{
+    // Force Chart.js to recalculate after resize
+    const cv=document.getElementById('spark');
+    if(cv){
+      const ch=Chart.getChart(cv);
+      if(ch) ch.resize();
+    }
+  },150);
+});
+
+
+// ── Alert chimes ────────────────────────────────────────────────
+const ALERT_FREQS={3:880,6:660,10:528}; // A5, E5, C5 — distinct pitches
+let alertsEnabled={3:false,6:false,10:false};
+let _alertedThis={};
+
+function toggleAlertPanel(){
+  document.getElementById('alertPanel').classList.toggle('open');
+}
+// Close panel on outside click
+document.addEventListener('click',e=>{
+  const p=document.getElementById('alertPanel');
+  const btn=document.getElementById('alertBtn');
+  if(p.classList.contains('open')&&!p.contains(e.target)&&!btn.contains(e.target))
+    p.classList.remove('open');
+});
+
+function playChime(freq,duration=0.6){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.type='sine';osc.frequency.value=freq;
+    gain.gain.setValueAtTime(0.18,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+duration);
+    osc.start();osc.stop(ctx.currentTime+duration);
+    // Overtone for richness
+    const osc2=ctx.createOscillator();
+    const gain2=ctx.createGain();
+    osc2.connect(gain2);gain2.connect(ctx.destination);
+    osc2.type='sine';osc2.frequency.value=freq*2;
+    gain2.gain.setValueAtTime(0.06,ctx.currentTime);
+    gain2.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+duration*0.7);
+    osc2.start();osc2.stop(ctx.currentTime+duration*0.7);
+  }catch(e){}
+}
+
+function toggleAlert(mark,on){
+  alertsEnabled[mark]=on;
+  document.getElementById('alert'+mark+'Label').textContent=on?'ON':'OFF';
+  localStorage.setItem('alertsEnabled',JSON.stringify(alertsEnabled));
+  if(on) playChime(ALERT_FREQS[mark]); // test chime on enable
+}
+
+function checkAlertTriggers(minIn){
+  const iid=currentIid();
+  if(!_alertedThis[iid])_alertedThis[iid]={};
+  for(const mark of [3,6,10]){
+    if(alertsEnabled[mark]&&!_alertedThis[iid][mark]&&minIn>=mark&&minIn<mark+0.5){
+      _alertedThis[iid][mark]=true;
+      playChime(ALERT_FREQS[mark]);
+    }
+  }
+}
+
+// Load saved alert prefs
+(function(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('alertsEnabled')||'{}');
+    for(const m of[3,6,10]){
+      if(saved[m]){
+        alertsEnabled[m]=true;
+        const el=document.getElementById('alert'+m);
+        if(el)el.checked=true;
+        const lbl=document.getElementById('alert'+m+'Label');
+        if(lbl)lbl.textContent='ON';
+      }
+    }
+  }catch(e){}
+})();
+
+function updateTimer(){
+  const toNext=ITV-(Date.now()%ITV),m=Math.floor(toNext/60000),s=Math.floor((toNext%60000)/1000);
+  const el=((ITV-toNext)/ITV*100).toFixed(1);
+  const pct=parseFloat(el);
+  const minInNow=(ITV-toNext)/60000;
+  // Update time remaining label
+  document.getElementById('tlabel').textContent=`${m}m ${s}s to next`;
+  checkAlertTriggers(minInNow);
+
+  // Circular signal countdown
+  const circFg=document.getElementById('circFg');
+  const circSec=document.getElementById('circSec');
+  if(circFg&&circSec&&_lastSigRefresh){
+    const secSince=Math.floor((Date.now()-_lastSigRefresh)/1000);
+    const total=Math.round(SIG_ITV/1000);
+    const secLeft=Math.max(0,total-secSince);
+    const circumference=2*Math.PI*22;
+    const fraction=secLeft/total;
+    const offset=circumference*(1-fraction);
+    circFg.style.strokeDashoffset=offset;
+    const col=fraction>0.5?'var(--green-strong)':fraction>0.2?'var(--amber)':'var(--red-strong)';
+    circFg.style.stroke=col;
+    circSec.textContent=secLeft===0?'…':secLeft;
+    circSec.style.color=col;
+  }
+}
+
+// Manual AI trigger — only way to fire AI insight
+let _lastAiRunAt=null;
+async function runAIManual(){
+  _lastAiRunAt=Date.now();
+  const btn=document.getElementById('aiRunBtn');
+  const box=document.getElementById('aibox');
+  if(!getAiEnabled()){
+    if(box)box.innerHTML='<span style="color:var(--text3)">Enable AI in header first.</span>';
+    return;
+  }
+  if(!window._lastA){
+    if(box)box.innerHTML='<span style="color:var(--text3)">No signal data yet — wait for first refresh.</span>';
+    return;
+  }
+  if(btn){btn.textContent='...';btn.disabled=true;}
+  await streamAI(window._lastA,window._lastTick);
+  if(btn){btn.textContent='▶ RUN';btn.disabled=false;}
+}
+
+// ══════════════════════════════════════════════════════
+// LOOPS
+// ══════════════════════════════════════════════════════
+const SIG_ITV=15*1000,KALSHI_ITV=15*1000;
+let sigLoop=null,kalshiLoop=null;
+let _lastSigRefresh=0;
+
+function flashVerdict(){const vc=document.getElementById('vcard');vc.style.transition='opacity .15s';vc.style.opacity='.2';setTimeout(()=>{vc.style.opacity='1';},300);}
+
+async function refreshSignals(){
+  try{
+    const{closes,volumes,tick,src}=await fetchData();
+    const a=analyze(closes,volumes,lastKalshiImplied);
+    const prev=window._lastA?.verdict;
+    window._lastA=a;window._lastTick=tick;
+    _lastSigRefresh=Date.now();
+    if(prev&&prev!==a.verdict)flashVerdict();
+    renderSignals(a,tick,src);
+  }catch(e){console.warn('Signal refresh:',e.message);}
+}
+
+// ══════════════════════════════════════════════════════
+// DEMO
+// ══════════════════════════════════════════════════════
+function loadDemo(){
+  document.getElementById('errbox').style.display='none';
+  document.getElementById('ls').style.display='flex';lmsg('DEMO MODE','simulated');
+  let p=94000*(0.97+Math.random()*.06);const closes=[],vols=[];
+  for(let i=0;i<300;i++){const d=(Math.random()-.49)*.003,j=Math.random()>.97?(Math.random()-.5)*.008:0;p*=(1+d+j);closes.push(p);vols.push(.5+Math.random()*2.5);}
+  const last=closes.at(-1),tick={highPrice:Math.max(...closes)*1.002,lowPrice:Math.min(...closes)*.998,quoteVolume:last*18000};
+  const a=analyze(closes,vols,null);
+  document.getElementById('ls').style.display='none';
+  window._lastA=a;window._lastTick=tick;
+  _lastSigRefresh=Date.now();
+  renderSignals(a,tick,'DEMO');renderHistory();
+  if(ticker)clearInterval(ticker);ticker=setInterval(updateTimer,1000);
+  if(sigLoop)clearInterval(sigLoop);
+  sigLoop=setInterval(()=>{
+    const l=window._lastA;if(!l)return;
+    const c=l.closes.slice();c.push(c.at(-1)*(1+(Math.random()-.49)*.002));c.shift();
+    const v=l.volumes.slice();v.push(.5+Math.random()*2);v.shift();
+    _lastSigRefresh=Date.now();
+    window._lastA=analyze(c,v,null);renderSignals(window._lastA,tick,'DEMO');
+  },SIG_ITV);
+}
+
+// ══════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════
+async function boot(){
+  document.getElementById('errbox').style.display='none';
+  document.getElementById('ls').style.display='flex';lmsg('CONNECTING...','');
+  if(sigLoop)clearInterval(sigLoop);if(kalshiLoop)clearInterval(kalshiLoop);
+  try{
+    lmsg('LOADING HISTORY...','supabase');
+    const remote=await sbLoad();
+    if(remote&&remote.length){history=remote;saveHistory();}
+
+    lmsg('FETCHING BRTI BLEND...','coinbase + kraken + gemini');
+    const{closes,volumes,tick,src}=await fetchData();
+    const a=analyze(closes,volumes,lastKalshiImplied);
+    document.getElementById('ls').style.display='none';
+    window._lastA=a;window._lastTick=tick;
+    _lastSigRefresh=Date.now();
+    renderSignals(a,tick,src);renderHistory();
+    if(ticker)clearInterval(ticker);ticker=setInterval(updateTimer,1000);
+
+    // Immediately try to resolve any pending past intervals
+    (async()=>{
+      const pending=history.filter(h=>!h.kalshiResolved&&h.intervalId<currentIid());
+      if(!pending.length)return;
+      let changed=false;
+      for(const h of pending){
+        const resolved=await resolveFromKalshi(h);
+        if(resolved.kalshiResolved){
+          const idx=history.findIndex(x=>x.intervalId===h.intervalId);
+          if(idx>=0){history[idx]=resolved;changed=true;sbUpsert(resolved);}
+        }
+      }
+      if(changed){saveHistory();renderHistory();}
+    })();
+
+    // Initial Kalshi fetch at boot
+    await refreshKalshiBar(a);
+
+    // Unified 15s refresh — Kalshi FIRST so strike is fresh when bot fires during refreshSignals
+    kalshiLoop=setInterval(async()=>{
+      _lastSigRefresh=Date.now();
+      await refreshKalshiBar(window._lastA);
+      await refreshSignals();
+      renderHistory();
+    },SIG_ITV);
+
+    // Resolve pending history entries every 2 minutes using settled series list
+    setInterval(async()=>{
+      const pending=history.filter(h=>!h.kalshiResolved&&h.intervalId<currentIid());
+      if(!pending.length)return;
+      let changed=false;
+      for(const h of pending){
+        const resolved=await resolveFromKalshi(h);
+        if(resolved.kalshiResolved){
+          const idx=history.findIndex(x=>x.intervalId===h.intervalId);
+          if(idx>=0){history[idx]=resolved;changed=true;sbUpsert(resolved);}
+        }
+      }
+      if(changed){saveHistory();renderHistory();}
+    },2*60*1000);
+
+  }catch(e){
+    document.getElementById('ls').style.display='none';
+    document.getElementById('errbox').style.display='block';
+    document.getElementById('errmsg').textContent=e.message.split('\n')[0];
+    document.getElementById('errsrc').textContent=e.message.split('\n').slice(1).join(' | ');
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// TEST DATA — inject fake history to preview PA panel
+// ══════════════════════════════════════════════════════
+function loadTestData(){
+  const now=Date.now();
+  const IID=Math.floor(now/ITV);
+  function makeEntry(offsetIntervals,strike,result,snaps){
+    const iid=IID-offsetIntervals;
+    const ts=iid*ITV;
+    const d=new Date(ts);
+    const time=d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const date=d.toLocaleDateString([],{month:'short',day:'numeric'});
+    const entry={intervalId:iid,time,date,kalshiStrike:strike,kalshiResolved:result!==null,kalshiResult:result,brtiSettle:strike?(result==='yes'?strike+120:strike-80):null,outcome:result,snapshots:{}};
+    for(const mark of[3,6,10]){
+      const s=snaps[mark];
+      if(!s){entry.snapshots[mark]=null;continue;}
+      entry.snapshots[mark]={verdict:s.v,price:strike?strike+(Math.random()*60-30):94000,outcome:s.o};
+    }
+    return entry;
+  }
+  history=[
+    makeEntry(0, null,   null,  {3:null,6:null,10:null}),
+    makeEntry(1, 76226.01,'no', {3:{v:'NO',o:'pending'},6:{v:'NO',o:'pending'},10:{v:'NO',o:'pending'}}),
+    makeEntry(2, 76206.70,'no', {3:{v:'YES',o:'wrong'},  6:{v:'NO',o:'correct'}, 10:{v:'NO',o:'correct'}}),
+    makeEntry(3, 76140.93,'yes',{3:{v:'YES',o:'correct'},6:{v:'YES',o:'correct'},10:{v:'YES',o:'correct'}}),
+    makeEntry(4, 76101.43,'no', {3:{v:'NO',o:'skip'},    6:{v:'NO',o:'correct'}, 10:{v:'NO',o:'wrong'}}),
+    makeEntry(5, 76642.16,'yes',{3:{v:'YES',o:'correct'},6:{v:'YES',o:'correct'},10:{v:'YES',o:'correct'}}),
+    makeEntry(6, 76580.23,'yes',{3:{v:'NO',o:'wrong'},   6:{v:'NO',o:'wrong'},   10:{v:'YES',o:'correct'}}),
+    makeEntry(7, 76714.32,'no', {3:{v:'NO',o:'correct'}, 6:{v:'NO',o:'correct'}, 10:{v:'NO',o:'correct'}}),
+    makeEntry(8, 76610.44,'yes',{3:{v:'NO',o:'skip'},    6:{v:'YES',o:'skip'},   10:{v:'YES',o:'correct'}}),
+    makeEntry(9, 76898.03,'no', {3:{v:'NO',o:'correct'}, 6:{v:'YES',o:'wrong'},  10:{v:'NO',o:'correct'}}),
+    makeEntry(10,77000.06,'no', {3:{v:'YES',o:'wrong'},  6:{v:'NO',o:'correct'}, 10:{v:'NO',o:'correct'}}),
+    makeEntry(11,77123.50,'yes',{3:{v:'YES',o:'correct'},6:{v:'YES',o:'correct'},10:{v:'YES',o:'correct'}}),
+  ];
+  saveHistory();
+  renderHistory();
+  syncPAHeightUntilStable();
+  document.getElementById('stL').innerHTML='<span class="sdot-live"></span>TEST DATA LOADED';
+}
+
+loadBot();
+boot();
+</script>
+</body>
+</html>
