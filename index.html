@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kalshi BTC 15m Advisor — Build 19.9</title>
+<title>Kalshi BTC 15m Advisor — Build 20.1</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 /* ── Tokens ───────────────────────────────────────────────────── */
@@ -402,7 +402,7 @@ main{max-width:1200px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-dir
 <!-- Settings Modal -->
 <div id="settingsModal" class="modal-overlay hidden">
   <div class="modal-box">
-    <h2>⚙ SETTINGS — Build 19.9</h2>
+    <h2>⚙ SETTINGS — Build 20.1</h2>
 
     <div>
       <label>Anthropic API Key</label>
@@ -453,7 +453,7 @@ main{max-width:1200px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-dir
 </div>
 
 <header>
-  <div class="logo"><span class="sdot-live" id="liveDot1"></span><span class="sdot-live" id="liveDot2" style="margin-right:6px;animation-delay:.4s"></span>KALSHI BTC 15M <small>v19.9</small></div>
+  <div class="logo"><span class="sdot-live" id="liveDot1"></span><span class="sdot-live" id="liveDot2" style="margin-right:6px;animation-delay:.4s"></span>KALSHI BTC 15M <small>v20.1</small></div>
   <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:4px">
     <div id="hPrice">—</div><div id="hChange" class="neu">—</div>
     <span id="srcBadge" class="src-badge"></span>
@@ -600,9 +600,11 @@ main{max-width:1200px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-dir
           </div>
         </div>
       </div>
-      <div class="vsub" id="vsub" style="margin-top:2px">Loading...</div>
       <div style="margin-top:6px">
-        <div style="font-size:9px;color:var(--text3);letter-spacing:.08em;margin-bottom:4px">SIGNAL STABILITY (last 6)</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div style="font-size:9px;color:var(--text3);letter-spacing:.08em">SIGNAL STABILITY (last 6)</div>
+          <div style="font-size:11px;font-weight:700;color:var(--amber)">Strike: <span id="mrStrike">—</span></div>
+        </div>
         <div class="stability-row" id="stabilityRow">
           <div class="stab-dot stab-empty"></div>
           <div class="stab-dot stab-empty"></div>
@@ -629,23 +631,20 @@ main{max-width:1200px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-dir
           <div style="position:absolute;top:-3px;left:60%;width:1px;height:14px;background:var(--text3);opacity:.5"></div>
         </div>
       </div>
-      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:7px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:7px">
-          <span id="kStatus" class="kstatus kstatus-open" style="font-size:10px">LOADING</span>
-          <span style="font-size:12px;color:var(--amber);font-weight:700" id="kStrike">—</span>
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:7px;display:flex;gap:6px;align-items:center;justify-content:space-between">
+        <span id="kStatus" class="kstatus kstatus-open" style="font-size:10px">LOADING</span>
+        <div style="display:flex;gap:6px;flex:1;justify-content:center">
+          <span id="kUpBtn" style="font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;border:1.5px solid var(--green);color:var(--green);background:rgba(29,158,117,0.1)">▲ —¢</span>
+          <span id="kDnBtn" style="font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;border:1.5px solid var(--red);color:var(--red);background:rgba(226,75,74,0.1)">▼ —¢</span>
         </div>
-        <div style="display:flex;gap:6px">
-          <span id="kUpBtn" style="font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;border:1.5px solid var(--green);color:var(--green);background:rgba(29,158,117,0.1)">Up —¢</span>
-          <span id="kDnBtn" style="font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;border:1.5px solid var(--red);color:var(--red);background:rgba(226,75,74,0.1)">Down —¢</span>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <span style="font-size:9px;color:var(--text3)">IMPLIED</span>
-          <span style="font-size:11px;font-weight:700;color:var(--text2)" id="kImplied">—</span>
-          <span style="font-size:8px;color:var(--text3)" id="kTicker"></span>
-          <span style="font-size:9px;color:var(--text3)" id="kUpdated"></span>
-        </div>
+        <span style="font-size:11px;font-weight:700;color:var(--text2)" id="kImplied" style="display:none">—</span>
       </div>
       <div style="font-size:10px;color:var(--text3);margin-top:4px" id="modelVsKalshi"></div>
+      <!-- Ticker + updated at bottom with divider -->
+      <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:6px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:8px;color:var(--text3)" id="kTicker"></span>
+        <span style="font-size:9px;color:var(--text3)" id="kUpdated"></span>
+      </div>
       <span id="rsiV" style="display:none"></span><span id="volV" style="display:none"></span>
       <span id="ch4V" style="display:none"></span><span id="velV" style="display:none"></span>
       <span id="itvV" style="display:none"></span><span id="accelV" style="display:none"></span>
@@ -756,7 +755,7 @@ main{max-width:1200px;margin:0 auto;padding:12px 12px 24px;display:flex;flex-dir
 // ══════════════════════════════════════════════════════
 // CONSTANTS
 // ══════════════════════════════════════════════════════
-const BUILD='19.9';
+const BUILD='20.1';
 const ITV=15*60*1000;
 const SNAP_MARKS=[3,6,10];
 const KALSHI_BASE='https://api.elections.kalshi.com/trade-api/v2';
@@ -1177,31 +1176,37 @@ function renderBot(){
         if(pending){
           const strikeStr=pending.kalshiStrike?` · Strike $${pending.kalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`:'';
           const awaiting=pending.result==='awaiting';
-          statusEl.innerHTML=
-            (awaiting
-              ? `<span class="bot-thinking"><span class="bot-think-dot"></span><span class="bot-think-dot"></span><span class="bot-think-dot"></span></span> <span style="color:var(--text3)">Market resolution pending...</span>`
-              : `⏳ <strong>${pending.verdict}</strong> bet placed at ${pending.minIn}m · ${pending.time}`)+
-            `${strikeStr} · $${pending.betSize?.toFixed(2)} @ ${((pending.entryPrice||0)*100).toFixed(0)}¢`+
-            `<br><span style="font-size:10px;color:var(--text3)">${pending.rationale}</span>`+
-            `<br><span style="font-size:9px;color:var(--text3)">Conf: ${pending.conf?.toFixed(0)}% · Kalshi: ${pending.impliedProb!=null?pending.impliedProb.toFixed(0)+'%':'N/A'} · ${pending.aiCallsThisInterval||0} AI call(s)</span>`;
-          statusEl.style.color=awaiting?'var(--text3)':'var(--amber)';
+          const pendingArrow=pending.verdict==='YES'?'▲':'▼';
+          const pendingEntryC=pending.entryPrice!=null?Math.round(pending.entryPrice*100)+'c':'—c';
+          const pendingStrikeFmt=pending.kalshiStrike?'$'+pending.kalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+          const pendingTime=pending.time||'—';
+          statusEl.innerHTML= awaiting
+            ? `<span class="bot-thinking"><span class="bot-think-dot"></span><span class="bot-think-dot"></span><span class="bot-think-dot"></span></span> <span style="color:var(--text3)">Market resolution pending... · Strike <span style="color:var(--amber)">${pendingStrikeFmt}</span> · $${pending.betSize?.toFixed(2)} @ ${pendingEntryC}</span>`
+            : `<div style="font-weight:700;font-size:13px;color:rgba(255,255,255,0.92);margin-bottom:2px">${pendingArrow} <strong>${pending.verdict}</strong> bet placed at ${pending.minIn}m · ${pendingTime} · Strike <span style="color:var(--amber)">${pendingStrikeFmt}</span> · $${pending.betSize?.toFixed(2)} @ ${pendingEntryC}</div>`+
+              `<div style="font-size:10px;color:rgba(255,255,255,0.75);line-height:1.5;margin-bottom:2px">${pending.rationale}</div>`+
+              `<div style="font-size:9px;color:var(--text3)">Conf: ${pending.conf?.toFixed(0)}% · Kalshi: ${pending.impliedProb!=null?pending.impliedProb.toFixed(0)+'%':'N/A'} · ${pending.aiCallsThisInterval||0} AI call(s)</div>`;
+          statusEl.style.color=awaiting?'var(--text3)':'inherit';
         } else {
           const last=bot.trades.filter(t=>t.result!=='pending').at(-1);
           if(last){
             const col=last.result==='correct'?'var(--green-strong)':'var(--red-strong)';
             const emoji=last.result==='correct'?'✓':'✗';
+            const lastArrow=last.verdict==='YES'?'▲':'▼';
+            const lastEntryC=last.entryPrice!=null?Math.round(last.entryPrice*100)+'c':'—c';
+            const lastStrikeFmt=last.kalshiStrike?'$'+last.kalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+            const lastTime=last.time||'—';
             statusEl.innerHTML=
-              `${emoji} <strong>${last.verdict}</strong> ${last.result}`+
-              ` · ${(last.profit>=0?'+':'')+'$'+last.profit?.toFixed(2)}`+
-              ` · Bankroll $${last.bankrollAfter?.toFixed(2)}`+
-              `<br><span style="font-size:10px;color:var(--text3)">${last.rationale}</span>`;
-            statusEl.style.color=col;
+              `<div style="font-weight:700;font-size:13px;color:rgba(255,255,255,0.92);margin-bottom:2px">${lastArrow} ${last.verdict} ${emoji} placed $${last.betSize?.toFixed(2)} @ ${lastEntryC} · Strike <span style="color:var(--amber)">${lastStrikeFmt}</span></div>`+
+              `<div style="font-size:10px;color:var(--text3);margin-bottom:2px">Time: ${last.minIn}m · ${lastTime}</div>`+
+              `<div style="font-weight:700;font-size:11px;color:${col}">${(last.profit>=0?'+':'')+'$'+last.profit?.toFixed(2)} · Bankroll $${last.bankrollAfter?.toFixed(2)}</div>`+
+              `<div style="font-size:10px;color:rgba(255,255,255,0.7);margin-top:3px;line-height:1.5">${last.rationale}</div>`;
+            statusEl.style.color='inherit';
           } else {
             const iid=currentIid();
             const callsMade=bot._callsMade?.length||0;
             statusEl.textContent=callsMade>0
               ? `Watching... ${callsMade} AI check(s) done this interval`
-              : 'Watching for 6m window...';
+              : 'Waiting for 6m window...';
             statusEl.style.color='var(--text3)';
           }
         }
@@ -1230,14 +1235,12 @@ function renderBot(){
         const prevLog=t.callLog?.map(c=>`${c.min}m: ${c.response}`).join(' | ')||'';
         const tip=`${t.verdict} @ ${t.minIn}m · ${timeStr} | Strike: ${strikeStr} | Settle: ${settleStr} | Conf: ${t.conf?.toFixed(0)}% | Bet: $${t.betSize?.toFixed(2)} | ${t.rationale}${prevLog?' || Prior: '+prevLog:''}`;
         const profitColor=t.result==='correct'?'var(--green-strong)':t.result==='wrong'?'var(--red-strong)':'inherit';
-        const entryPctStr=t.entryPct!=null?Math.round(t.entryPct*100)+'c':'—c';
         const strikeFmt=t.kalshiStrike?'$'+t.kalshiStrike.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
-        const minStr=t.minIn!=null?t.minIn.toFixed(1)+'m':'—';
-        const resultIcon=t.result==='correct'?' ✓':t.result==='wrong'?' ✗':'';
-        return `<span class="bot-trade-pill ${cls}" title="${tip}" style="flex-direction:column;align-items:flex-start;text-align:left;height:auto;padding:6px 10px;line-height:1.65;min-width:180px">
-          <span style="font-weight:700;font-size:12px;width:100%;color:rgba(255,255,255,0.92)">${arrow} ${t.verdict}${resultIcon} placed $${t.betSize?.toFixed(2)} @ ${entryPctStr} · <span style="color:var(--amber)">${strikeFmt}</span></span>
-          <span style="font-size:10px;color:rgba(255,255,255,0.7);width:100%">Time: ${minStr} · ${itvStartStr}</span>
-          <span style="font-size:10px;font-weight:700;color:${profitColor};width:100%">${t.result==='awaiting'||t.result==='pending'?'⏳ awaiting…':pnlStr}</span>
+        const itvStartStr2=t.iid?new Date(t.iid*ITV).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}).replace(/\s*(AM|PM)/i,m=>m.trim()):'—';
+        return `<span class="bot-trade-pill ${cls}" title="${tip}" style="flex-direction:column;align-items:flex-start;text-align:left;height:auto;padding:5px 9px;line-height:1.5;min-width:110px">
+          <span style="font-weight:700;font-size:11px;width:100%">${arrow} ${t.verdict} ${settleStr}</span>
+          <span style="font-size:9px;opacity:.8;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${itvStartStr2} · <span style="color:var(--amber)">${strikeFmt}</span></span>
+          <span style="font-size:9px;font-weight:700;color:${profitColor};width:100%">$${t.betSize?.toFixed(2)} (${t.result==='awaiting'?'…':pnlStr})</span>
         </span>`;
       }).join('');
     }
@@ -2558,6 +2561,7 @@ async function refreshKalshiBar(a){
     const kse=document.getElementById('kStrike');
     if(kse&&kse.textContent!=='pending...'){
       kse.textContent='pending...';kse.style.color='var(--text3)';
+    const mrSp=document.getElementById('mrStrike');if(mrSp)mrSp.textContent='pending...';
     }
   }
 
@@ -2672,8 +2676,10 @@ async function refreshKalshiBar(a){
   const _strikeDisplay=strike||(lastKalshiStrikeIid===iid?lastKalshiStrike:null);
   const kStrikeEl=document.getElementById('kStrike');
   if(_strikeDisplay){
-    kStrikeEl.textContent='$'+_strikeDisplay.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    const _strikeFormatted='$'+_strikeDisplay.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    kStrikeEl.textContent=_strikeFormatted;
     kStrikeEl.style.color=''; // restore normal color
+    const mrS=document.getElementById('mrStrike');if(mrS)mrS.textContent=_strikeFormatted;
   } else if(kStrikeEl.textContent!=='pending...'){
     kStrikeEl.textContent='—';kStrikeEl.style.color='';
   }
@@ -2705,10 +2711,10 @@ async function refreshKalshiBar(a){
   if(kUp&&kDn){
     if(yesBid&&yesAsk){
       const upC=Math.round(yesAsk*100),dnC=Math.round((1-yesBid)*100);
-      kUp.textContent=`Up ${upC}¢`;kDn.textContent=`Down ${dnC}¢`;
+      kUp.textContent=`▲ ${upC}¢`;kDn.textContent=`▼ ${dnC}¢`;
       kUp.style.background=`rgba(29,158,117,${Math.min(0.35,upC/100*0.5)})`;
       kDn.style.background=`rgba(226,75,74,${Math.min(0.35,dnC/100*0.5)})`;
-    } else { kUp.textContent='Up —¢';kDn.textContent='Down —¢'; }
+    } else { kUp.textContent='▲ —¢';kDn.textContent='▼ —¢'; }
   }
   const implied=yesBid&&yesAsk?(yesBid+yesAsk)/2*100:null;
   document.getElementById('kImplied').textContent=implied?implied.toFixed(1)+'%':'—';
@@ -2966,7 +2972,6 @@ function renderSignals(a,tick,src){
   const vc=document.getElementById('vcard');
   vc.className='vcard '+(a.verdict==='YES'?'vy':a.verdict==='NO'?'vn':'vw');
   document.getElementById('vtitle').textContent=a.verdict==='YES'?'BET YES ↑':a.verdict==='NO'?'BET NO ↓':'WAIT / SKIP';
-  document.getElementById('vsub').textContent=a.verdict==='YES'?'Signals favor price UP':a.verdict==='NO'?'Signals favor price DOWN':'Signals too mixed';
   document.getElementById('cpct').textContent=a.conf.toFixed(0)+'%';
   const cb=document.getElementById('cbar');cb.style.width=a.conf+'%';
   cb.style.background=a.verdict==='YES'?'#1DB87A':a.verdict==='NO'?'#E05252':'#888';
